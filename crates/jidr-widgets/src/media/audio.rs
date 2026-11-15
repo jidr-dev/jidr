@@ -18,10 +18,21 @@
 //!   interleaves the two) and a late packet still finds its place.
 //!
 //! So the audio never drifts from the video by more than [`TOLERANCE`].
+//!
+//! The stream itself comes through a [`Feed`]. The emulator doesn't even
+//! answer the `streamAudio` call until the guest first plays a sound (a
+//! headless emulator with no audio may never answer), so nothing ever waits
+//! on it: a task opens and pumps it, and dropping the feed aborts that task.
 
-use std::time::Duration;
+use std::future::Future;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
+use std::time::{Duration, Instant};
 
+use jidr_core::JidrResult;
 use jidr_proto::control as pb;
+use tokio_stream::{Stream, StreamExt as _};
 
 /// Sample rate asked of the emulator and written to the file.
 pub const RATE: u32 = 48_000;
@@ -73,6 +84,108 @@ pub fn to_stereo(format: Option<&pb::AudioFormat>, pcm: &[u8]) -> Option<Vec<u8>
 
 fn whole_frames(pcm: &[u8], frame: usize) -> &[u8] {
     &pcm[..pcm.len() - pcm.len() % frame]
+}
+
+/// An audio packet as it arrived: when, and 16-bit stereo PCM.
+pub type Packet = (Instant, Vec<u8>);
+
+/// The device's audio for one recording. `open` (the `streamAudio` call)
+/// and the stream run on a task; the encoder only takes what has arrived
+/// ([`Feed::drain`]) and never waits. Dropping the feed aborts the task, so
+/// an open that never answers or a stream that never yields can't outlive
+/// the recording.
+pub struct Feed {
+    rx: mpsc::Receiver<Packet>,
+    failed: Arc<AtomicBool>,
+    task: tokio::task::JoinHandle<()>,
+}
+
+impl Feed {
+    /// Starts `open` on the current runtime. If it fails, [`Feed::failed`]
+    /// turns true (with a warning naming `device`): the recording goes on
+    /// video-only. `stop` silences the warning when the stream ends because
+    /// the recording did.
+    pub fn spawn<F, S>(device: String, open: F, stop: Arc<AtomicBool>) -> Self
+    where
+        F: Future<Output = JidrResult<S>> + Send + 'static,
+        S: Stream<Item = Result<pb::AudioPacket, tonic::Status>> + Unpin + Send + 'static,
+    {
+        let (tx, rx) = mpsc::channel();
+        let failed = Arc::new(AtomicBool::new(false));
+        let flag = failed.clone();
+        let task = tokio::spawn(async move {
+            match open.await {
+                Ok(stream) => pump(stream, tx, stop).await,
+                Err(e) => {
+                    tracing::warn!("recording {device} without audio: {}", e.message);
+                    flag.store(true, Ordering::Relaxed);
+                }
+            }
+        });
+        Self { rx, failed, task }
+    }
+
+    /// The stream couldn't be opened.
+    pub fn failed(&self) -> bool {
+        self.failed.load(Ordering::Relaxed)
+    }
+
+    /// The packets that arrived since the last call; never blocks.
+    pub fn drain(&self) -> impl Iterator<Item = Packet> + '_ {
+        self.rx.try_iter()
+    }
+}
+
+impl Drop for Feed {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
+/// Sends each packet, stamped with its arrival, until the stream ends.
+/// Packets in another format are dropped (with one warning); the timeline
+/// fills their place with silence.
+async fn pump<S>(mut packets: S, tx: mpsc::Sender<Packet>, stop: Arc<AtomicBool>)
+where
+    S: Stream<Item = Result<pb::AudioPacket, tonic::Status>> + Unpin,
+{
+    let mut warned = false;
+    let mut first = true;
+    let end = loop {
+        match packets.next().await {
+            Some(Ok(p)) => {
+                let at = Instant::now();
+                if first {
+                    first = false;
+                    tracing::info!(
+                        "recording: device audio started ({:?}, {} bytes a packet)",
+                        p.format,
+                        p.audio.len()
+                    );
+                }
+                match to_stereo(p.format.as_ref(), &p.audio) {
+                    Some(pcm) => {
+                        if tx.send((at, pcm)).is_err() {
+                            return;
+                        }
+                    }
+                    None if !warned => {
+                        warned = true;
+                        tracing::warn!(
+                            "recording: the emulator sent audio as {:?}; it's left out",
+                            p.format
+                        );
+                    }
+                    None => {}
+                }
+            }
+            Some(Err(e)) => break e.message().to_string(),
+            None => break "it ended".to_string(),
+        }
+    };
+    if !stop.load(Ordering::Relaxed) {
+        tracing::warn!("recording: the device's audio stream stopped ({end}); the rest is silent");
+    }
 }
 
 /// Frames in `d` at [`RATE`].
@@ -168,6 +281,99 @@ impl Timeline {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Sets its flag when dropped: shows a future or stream was torn down.
+    struct Dropped(Arc<AtomicBool>);
+
+    impl Drop for Dropped {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::Relaxed);
+        }
+    }
+
+    type PacketStream =
+        std::pin::Pin<Box<dyn Stream<Item = Result<pb::AudioPacket, tonic::Status>> + Send>>;
+
+    fn packet(n: usize) -> pb::AudioPacket {
+        pb::AudioPacket {
+            format: Some(format_pb()),
+            audio: vec![1; n * FRAME_BYTES],
+            ..Default::default()
+        }
+    }
+
+    /// Lets the feed's task run.
+    async fn settle() {
+        for _ in 0..20 {
+            tokio::task::yield_now().await;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+
+    /// Regression (CI on PR #109): a headless emulator never answers
+    /// `streamAudio`, and waiting for it hung the recording test for
+    /// 30 minutes. The feed doesn't wait, isn't failed (the track is
+    /// silence) and drops the pending call with itself.
+    #[tokio::test]
+    async fn an_open_that_never_answers_blocks_nothing_and_ends_with_the_feed() {
+        let gone = Arc::new(AtomicBool::new(false));
+        let guard = Dropped(gone.clone());
+        let open = async move {
+            let _guard = guard;
+            std::future::pending::<JidrResult<PacketStream>>().await
+        };
+        let feed = Feed::spawn("d".into(), open, Arc::default());
+        settle().await;
+        assert_eq!(feed.drain().count(), 0);
+        assert!(!feed.failed());
+        assert!(!gone.load(Ordering::Relaxed));
+        drop(feed);
+        settle().await;
+        assert!(
+            gone.load(Ordering::Relaxed),
+            "the pending open outlived the feed"
+        );
+    }
+
+    /// A stream that opens and then never yields (or never closes) is torn
+    /// down with the feed too.
+    #[tokio::test]
+    async fn a_stream_that_never_yields_ends_with_the_feed() {
+        let gone = Arc::new(AtomicBool::new(false));
+        let guard = Dropped(gone.clone());
+        let stream: PacketStream = Box::pin(
+            tokio_stream::iter([Ok(packet(960))])
+                .chain(tokio_stream::pending())
+                .map(move |p| {
+                    let _ = &guard;
+                    p
+                }),
+        );
+        let feed = Feed::spawn("d".into(), async { Ok(stream) }, Arc::default());
+        settle().await;
+        assert_eq!(
+            feed.drain().map(|(_, pcm)| pcm.len()).sum::<usize>(),
+            960 * FRAME_BYTES
+        );
+        assert_eq!(feed.drain().count(), 0, "nothing more, and no wait");
+        drop(feed);
+        settle().await;
+        assert!(
+            gone.load(Ordering::Relaxed),
+            "the stalled stream outlived the feed"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_failed_open_makes_the_recording_video_only() {
+        let open = async {
+            Err::<PacketStream, _>(jidr_core::JidrError::sdk("streamAudio: transport error"))
+        };
+        let feed = Feed::spawn("d".into(), open, Arc::default());
+        settle().await;
+        assert!(feed.failed());
+        assert_eq!(feed.drain().count(), 0);
+    }
 
     fn ms(n: u64) -> Duration {
         Duration::from_millis(n)

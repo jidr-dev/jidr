@@ -105,29 +105,35 @@ async fn media_screenshot_and_five_minute_recording() {
         "{s}"
     );
 
-    // #28: streamAudio takes the recorder's format (gRPC only: any OS). A
-    // silent guest sends nothing, so a missing packet isn't a failure.
-    let (mut grpc, _) = jidr_backend::grpc::connect_port(env.info.grpc_port, &env.info.grpc_token)
-        .await
-        .unwrap();
-    let mut packets = grpc
-        .stream_audio(audio::format_pb())
-        .await
-        .expect("streamAudio")
-        .into_inner();
+    // #28: the recorder's audio feed on a real emulator (gRPC only: any OS).
+    // `streamAudio` doesn't answer until the guest plays something, and a
+    // headless emulator may never play anything, so nothing here waits on
+    // the call: the feed is polled for 10 s, and silence isn't a failure.
+    let (port, token) = (env.info.grpc_port, env.info.grpc_token.clone());
+    let open = async move {
+        jidr_backend::grpc::connect_port(port, &token)
+            .await?
+            .0
+            .stream_audio(audio::format_pb())
+            .await
+            .map(tonic::Response::into_inner)
+            .map_err(|s| jidr_backend::grpc::status_error("streamAudio", s))
+    };
+    let feed = audio::Feed::spawn("widgets10a".into(), open, Default::default());
     ring(&env).await;
-    match tokio::time::timeout(Duration::from_secs(10), packets.message()).await {
-        Ok(Ok(Some(p))) => {
-            println!("audio packet: {:?}, {} bytes", p.format, p.audio.len());
-            assert!(
-                audio::to_stereo(p.format.as_ref(), &p.audio).is_some(),
-                "the emulator sent {:?}",
-                p.format
-            );
-        }
-        other => println!("no audio packet within 10 s: {other:?}"),
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    let mut got = 0usize;
+    while got == 0 && !feed.failed() && std::time::Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        got += feed.drain().map(|(_, pcm)| pcm.len()).sum::<usize>();
     }
-    drop(packets);
+    // A refusal is the recorder's video-only case (logged), not a failure
+    // here; on macOS the recording below must have its audio.
+    println!(
+        "audio from the emulator in 10 s: {got} bytes (refused: {})",
+        feed.failed()
+    );
+    drop(feed);
     hang_up(&env).await;
 
     // Recording encodes with AVFoundation (VideoToolbox): macOS only.
