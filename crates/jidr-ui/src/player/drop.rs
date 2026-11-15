@@ -1,7 +1,7 @@
 //! What a file dropped on the device does (plan 7c, D35, ADR-0004).
 
-use std::path::{Path, PathBuf};
 use crate::i18n::tr;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DropAction {
@@ -55,9 +55,13 @@ pub fn hover_text(action: &DropAction, device: &str) -> (String, String) {
         DropAction::FlashZip { path, full_root } => (
             tr!("Release to flash {}", name(path)),
             if *full_root {
-                tr!("A Magisk module installs and reboots the device (about 40 s). Recovery and image zips can't be flashed; other zips go to Download.")
+                tr!(
+                    "A Magisk module installs and reboots the device (about 40 s). Recovery and image zips can't be flashed; other zips go to Download."
+                )
             } else {
-                tr!("Magisk modules need Full root, so a module is copied to Download. Recovery and image zips can't be flashed.")
+                tr!(
+                    "Magisk modules need Full root, so a module is copied to Download. Recovery and image zips can't be flashed."
+                )
             },
         ),
         DropAction::Push { path, note } => (

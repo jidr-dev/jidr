@@ -380,8 +380,8 @@ fn tool_action(ctx: &Rc<Ctx>, tool: &str) {
     }
 }
 
-use crate::recording::file_name;
 use crate::i18n::{tr, trn};
+use crate::recording::file_name;
 
 fn toggle_overlay(ctx: &Rc<Ctx>) {
     let on = !ctx.app.get_player_overlay();
@@ -558,10 +558,7 @@ pub fn handle_drop(ctx: &Rc<Ctx>, path: &Path) {
     };
     let w = ctx.app.as_weak();
     if !running {
-        toast(
-            &w,
-            tr!("Start the device first, then drop the file again"),
-        );
+        toast(&w, tr!("Start the device first, then drop the file again"));
         return;
     }
     let name = file_name(&path.to_string_lossy());
@@ -624,7 +621,9 @@ fn install_apk(ctx: &Rc<Ctx>, id: Uuid, apk: PathBuf, reinstall: bool) {
                 crate::launcher::confirm(
                     &c,
                     &tr!("Reinstall {}?", file_name(&apk2.to_string_lossy())),
-                    &tr!("The installed app was signed with a different key. Reinstalling uninstalls it first, which deletes its data."),
+                    &tr!(
+                        "The installed app was signed with a different key. Reinstalling uninstalls it first, which deletes its data."
+                    ),
                     &tr!("Reinstall"),
                     move || install_apk(&c2, id, apk3.clone(), true),
                 );
