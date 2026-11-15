@@ -1,7 +1,9 @@
 //! Screenshots (gRPC `getScreenshot` → PNG) and screen recording: the
 //! daemon streams frames from the emulator and encodes MP4/H.264 at a
-//! constant frame rate (D13; no 180 s cap; audio post-MVP).
+//! constant frame rate (D13; no 180 s cap), with the device's audio as AAC
+//! (#28) from gRPC `streamAudio`.
 
+pub mod audio;
 #[cfg(target_os = "macos")]
 pub mod mp4;
 
@@ -45,6 +47,10 @@ pub struct RecordParams {
     /// Frames per second (default 30).
     #[serde(default)]
     pub fps: Option<u32>,
+    /// Also record the device's audio (AAC; default true). If the emulator's
+    /// audio stream fails, the recording goes on without it.
+    #[serde(default)]
+    pub audio: Option<bool>,
 }
 
 #[derive(Debug, Default)]
@@ -55,7 +61,7 @@ pub fn specs() -> Vec<CommandSpec> {
         CommandSpec::new::<ShotParams>("media.screenshot", "Save a PNG of the screen"),
         CommandSpec::new::<RecordParams>(
             "media.record",
-            "Record the screen to MP4 (H.264) until media.record_stop or max_seconds",
+            "Record the screen and the device's audio to MP4 (H.264, AAC) until media.record_stop or max_seconds",
         )
         .long_running(),
         CommandSpec::new::<DeviceParams>(
@@ -165,7 +171,8 @@ pub async fn call(
                 }
                 m.insert(t.device.id, stop.clone());
             }
-            let r = record(ctx, &t, &path, fps, max, stop).await;
+            let audio = p.audio.unwrap_or(true);
+            let r = record(ctx, &t, &path, fps, max, audio, stop).await;
             if let Ok(mut m) = recs.0.lock() {
                 m.remove(&t.device.id);
             }
@@ -213,6 +220,114 @@ where
     ended.store(true, Ordering::Relaxed);
 }
 
+/// Audio packets as they arrive: when, and 16-bit stereo PCM.
+#[cfg(target_os = "macos")]
+type Packet = (Instant, Vec<u8>);
+
+/// Sends each audio packet, stamped with its arrival, until the stream ends.
+/// Packets in another format are dropped (with one warning); the timeline
+/// fills their place with silence.
+#[cfg(target_os = "macos")]
+async fn pump_audio<S>(mut packets: S, tx: std::sync::mpsc::Sender<Packet>, stop: Arc<AtomicBool>)
+where
+    S: tokio_stream::Stream<Item = Result<pb::AudioPacket, tonic::Status>> + Unpin,
+{
+    use tokio_stream::StreamExt as _;
+    let mut warned = false;
+    let end = loop {
+        match packets.next().await {
+            Some(Ok(p)) => match audio::to_stereo(p.format.as_ref(), &p.audio) {
+                Some(pcm) => {
+                    if tx.send((Instant::now(), pcm)).is_err() {
+                        return;
+                    }
+                }
+                None if !warned => {
+                    warned = true;
+                    tracing::warn!(
+                        "recording: the emulator sent audio as {:?}; it's left out",
+                        p.format
+                    );
+                }
+                None => {}
+            },
+            Some(Err(e)) => break e.message().to_string(),
+            None => break "it ended".to_string(),
+        }
+    };
+    if !stop.load(Ordering::Relaxed) {
+        tracing::warn!("recording: the device's audio stream stopped ({end}); the rest is silent");
+    }
+}
+
+/// Opens `streamAudio` and starts its pump (abort it when done: a silent
+/// device sends nothing, so the pump can wait forever). `None`
+/// (video-only, with a warning) when the device has no audio or the call
+/// fails.
+#[cfg(target_os = "macos")]
+async fn open_audio(
+    t: &Target,
+    stop: Arc<AtomicBool>,
+) -> Option<(
+    std::sync::mpsc::Receiver<Packet>,
+    tokio::task::JoinHandle<()>,
+)> {
+    if t.device.launch.audio == Some(false) {
+        tracing::warn!(
+            "recording {} without audio: the device starts with -no-audio",
+            t.device.name
+        );
+        return None;
+    }
+    let call = async {
+        t.grpc()
+            .await?
+            .stream_audio(audio::format_pb())
+            .await
+            .map_err(grpc_err("streamAudio"))
+    };
+    match call.await {
+        Ok(stream) => {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let pump = tokio::spawn(pump_audio(stream.into_inner(), tx, stop));
+            Some((rx, pump))
+        }
+        Err(e) => {
+            tracing::warn!("recording {} without audio: {}", t.device.name, e.message);
+            None
+        }
+    }
+}
+
+/// Lays the packets that came in on the timeline and writes them, then
+/// silence up to `now`. A failed append ends the audio track (with a
+/// warning) and the video goes on.
+#[cfg(target_os = "macos")]
+fn feed_audio(
+    wr: &mut mp4::Mp4Writer,
+    tl: &mut audio::Timeline,
+    rx: &std::sync::mpsc::Receiver<Packet>,
+    start: Instant,
+    now: Duration,
+) -> bool {
+    let rate = f64::from(audio::RATE);
+    let mut chunks = Vec::new();
+    for (at, pcm) in rx.try_iter() {
+        let len = Duration::from_secs_f64((pcm.len() / audio::FRAME_BYTES) as f64 / rate);
+        let since = at.saturating_duration_since(start).saturating_sub(len);
+        chunks.extend(tl.place(since, &pcm));
+    }
+    chunks.extend(tl.fill(now));
+    for c in chunks {
+        if let Err(e) = wr.push_audio(c.start, &c.pcm) {
+            tracing::warn!("recording: audio dropped from here on: {}", e.message);
+            wr.end_audio();
+            return false;
+        }
+    }
+    true
+}
+
 #[cfg(target_os = "macos")]
 async fn record(
     ctx: &CallCtx,
@@ -220,6 +335,7 @@ async fn record(
     path: &Path,
     fps: u32,
     max: Duration,
+    audio: bool,
     stop: Arc<AtomicBool>,
 ) -> JidrResult<Value> {
     let (lw, lh) = lcd_size(t).await?;
@@ -238,13 +354,24 @@ async fn record(
         .map_err(grpc_err("streamScreenshot"))?
         .into_inner();
     let reader = tokio::spawn(pump(stream, latest.clone(), stop.clone()));
+    // Audio stream (emulator → channel), opened before the clock starts.
+    let (audio_rx, audio_pump) = match audio {
+        true => open_audio(t, stop.clone()).await.unzip(),
+        false => (None, None),
+    };
     // Encoder on its own thread at a constant rate; duplicates the last
     // frame when the screen doesn't change.
     let cancel = ctx.cancel.clone();
     let progress = ctx.progress.clone();
     let path_buf = path.to_path_buf();
-    let enc = tokio::task::spawn_blocking(move || -> JidrResult<(i64, bool)> {
+    let enc = tokio::task::spawn_blocking(move || -> JidrResult<(i64, bool, bool)> {
         let mut writer: Option<mp4::Mp4Writer> = None;
+        let mut timeline = audio::Timeline::default();
+        let mut audio_rx = audio_rx;
+        let audio_spec = audio_rx.as_ref().map(|_| mp4::AudioSpec {
+            rate: audio::RATE,
+            channels: audio::CHANNELS,
+        });
         let start = Instant::now();
         let mut last_report = Instant::now();
         let mut cancelled = false;
@@ -263,7 +390,11 @@ async fn record(
                 && let Some((fw, fh, px)) = l.frame.take()
             {
                 if writer.is_none() {
-                    writer = Some(mp4::Mp4Writer::create(&path_buf, fw, fh, fps as i32)?);
+                    let wr = mp4::Mp4Writer::create(&path_buf, fw, fh, fps as i32, audio_spec)?;
+                    if !wr.has_audio() {
+                        audio_rx = None;
+                    }
+                    writer = Some(wr);
                 }
                 if let Some(wr) = writer.as_ref() {
                     // Frames of another size (rotation) are cropped/padded to the first.
@@ -275,6 +406,11 @@ async fn record(
                 let due = (start.elapsed().as_secs_f64() * f64::from(fps)) as i64;
                 while wr.frames() <= due {
                     wr.push(px)?;
+                }
+                if let Some(rx) = audio_rx.as_ref()
+                    && !feed_audio(wr, &mut timeline, rx, start, start.elapsed())
+                {
+                    audio_rx = None;
                 }
             }
             if last_report.elapsed() >= Duration::from_secs(1) {
@@ -288,18 +424,32 @@ async fn record(
             std::thread::sleep(frame_dt / 2);
         }
         let frames = writer.as_ref().map(mp4::Mp4Writer::frames).unwrap_or(0);
+        let has_audio = writer.as_ref().is_some_and(mp4::Mp4Writer::has_audio);
+        if let (Some(wr), Some(rx), false) = (writer.as_mut(), audio_rx.as_ref(), cancelled) {
+            // The last packets, then silence to the video's end.
+            let end = Duration::from_secs_f64(frames as f64 / f64::from(fps));
+            if feed_audio(wr, &mut timeline, rx, start, end)
+                && let Some(c) = timeline.finish(end)
+                && let Err(e) = wr.push_audio(c.start, &c.pcm)
+            {
+                tracing::warn!("recording: the audio's end is missing: {}", e.message);
+            }
+        }
         match writer {
             Some(w) if cancelled => w.cancel(),
             Some(w) => w.finish()?,
             None => {}
         }
-        Ok((frames, cancelled))
+        Ok((frames, cancelled, has_audio))
     });
     let r = enc
         .await
         .map_err(|e| JidrError::unexpected(format!("encoder: {e}")))?;
     reader.abort();
-    let (frames, cancelled) = r?;
+    if let Some(p) = audio_pump {
+        p.abort();
+    }
+    let (frames, cancelled, has_audio) = r?;
     if cancelled {
         let _ = std::fs::remove_file(path);
         return Err(jidr_core::cancel::cancelled());
@@ -314,6 +464,7 @@ async fn record(
         "duration_s": frames as f64 / f64::from(fps),
         "width": w,
         "height": h,
+        "audio": has_audio,
     }))
 }
 
@@ -324,6 +475,7 @@ async fn record(
     _path: &Path,
     _fps: u32,
     _max: Duration,
+    _audio: bool,
     _stop: Arc<AtomicBool>,
 ) -> JidrResult<Value> {
     Err(JidrError::sdk(
@@ -431,7 +583,8 @@ mod tests {
     fn writes_an_mp4() {
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path().join("t.mp4");
-        let mut w = mp4::Mp4Writer::create(&path, 320, 240, 30).unwrap();
+        let mut w = mp4::Mp4Writer::create(&path, 320, 240, 30, None).unwrap();
+        assert!(!w.has_audio());
         let mut px = vec![0u8; 320 * 240 * 4];
         for i in 0..60u32 {
             px.iter_mut().for_each(|b| *b = (i * 4) as u8);
@@ -441,5 +594,91 @@ mod tests {
         let bytes = std::fs::read(&path).unwrap();
         assert!(bytes.len() > 1000);
         assert_eq!(&bytes[4..8], b"ftyp");
+        assert!(!contains(&bytes, b"mp4a"), "no audio track was asked for");
+    }
+
+    #[cfg(target_os = "macos")]
+    fn contains(hay: &[u8], needle: &[u8]) -> bool {
+        hay.windows(needle.len()).any(|w| w == needle)
+    }
+
+    /// `ms` of a 440 Hz tone, 16-bit stereo at the recording rate.
+    #[cfg(target_os = "macos")]
+    fn tone(ms: u32) -> Vec<u8> {
+        let n = audio::RATE * ms / 1000;
+        let mut out = Vec::with_capacity(n as usize * audio::FRAME_BYTES);
+        for i in 0..n {
+            let t = f64::from(i) / f64::from(audio::RATE);
+            let v = ((t * 440.0 * std::f64::consts::TAU).sin() * 8_000.0) as i16;
+            out.extend(v.to_le_bytes());
+            out.extend(v.to_le_bytes());
+        }
+        out
+    }
+
+    /// #28: 2 s of video with a tone that stops for a second (no packets)
+    /// in the middle, laid out by the timeline as the recorder does; the
+    /// file gets an AAC track next to the H.264 one.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn writes_an_mp4_with_an_aac_track() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("a.mp4");
+        let spec = mp4::AudioSpec {
+            rate: audio::RATE,
+            channels: audio::CHANNELS,
+        };
+        let mut w = mp4::Mp4Writer::create(&path, 320, 240, 30, Some(spec)).unwrap();
+        assert!(w.has_audio());
+        let mut tl = audio::Timeline::default();
+        let px = vec![90u8; 320 * 240 * 4];
+        for i in 0..60u64 {
+            w.push(&px).unwrap();
+            let now = Duration::from_millis(i * 1000 / 30);
+            // Sound in the first and last 500 ms, 20 ms packets.
+            if now < Duration::from_millis(500) || now >= Duration::from_millis(1500) {
+                for c in tl.place(now, &tone(34)) {
+                    w.push_audio(c.start, &c.pcm).unwrap();
+                }
+            }
+            if let Some(c) = tl.fill(now) {
+                w.push_audio(c.start, &c.pcm).unwrap();
+            }
+        }
+        if let Some(c) = tl.finish(Duration::from_secs(2)) {
+            w.push_audio(c.start, &c.pcm).unwrap();
+        }
+        // The last packet may run past the video; the file ends with it.
+        assert!(tl.end() >= u64::from(audio::RATE) * 2);
+        w.finish().unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        assert_eq!(&bytes[4..8], b"ftyp");
+        assert!(contains(&bytes, b"avc1"), "an H.264 track");
+        assert!(contains(&bytes, b"mp4a"), "an AAC track");
+        assert!(contains(&bytes, b"soun"), "a sound handler");
+    }
+
+    /// A broken audio input ends the track; the video still finishes.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn ending_the_audio_early_keeps_the_video() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("b.mp4");
+        let spec = mp4::AudioSpec {
+            rate: audio::RATE,
+            channels: audio::CHANNELS,
+        };
+        let mut w = mp4::Mp4Writer::create(&path, 320, 240, 30, Some(spec)).unwrap();
+        let px = vec![30u8; 320 * 240 * 4];
+        w.push(&px).unwrap();
+        w.push_audio(0, &tone(100)).unwrap();
+        w.end_audio();
+        // Audio after the end is ignored, not an error.
+        w.push_audio(4_800, &tone(100)).unwrap();
+        for _ in 0..30 {
+            w.push(&px).unwrap();
+        }
+        w.finish().unwrap();
+        assert!(std::fs::read(&path).unwrap().len() > 1000);
     }
 }
