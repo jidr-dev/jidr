@@ -14,7 +14,7 @@ const t = strings(Astro.currentLocale);
     <p class="lead">{t.sponsors.lead}</p>
     <div class="j-row" style="flex-wrap:wrap">
       <a class="btn" href={links.sponsors}><Icon name="heart" class="ic i16" />{t.sponsors.sponsor}</a>
-      {phase === "soon" && <a class="btn btn-primary" href={links.repo}>{t.sponsors.star}</a>}
+      {phase === "soon" && <a class="btn btn-primary" href={links.repo} data-track="github" data-track-label="sponsors-star">{t.sponsors.star}</a>}
     </div>
   </div>
 </section>
