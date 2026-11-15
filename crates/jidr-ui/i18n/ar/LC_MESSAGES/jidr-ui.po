@@ -332,7 +332,7 @@ msgstr "بلا جذر"
 msgid "Shell root (adb)"
 msgstr "جذر Shell ⁨(adb)⁩"
 
-#: src/model.rs
+#: src/model.rs ui/phones.slint
 msgid "Shell"
 msgstr "Shell"
 
@@ -786,7 +786,7 @@ msgstr "حُفظت هوية البناء. أعد التشغيل لتطبيقها
 msgid "Build identity saved. It applies on the next start."
 msgstr "حُفظت هوية البناء. ستُطبَّق عند التشغيل التالي."
 
-#: src/root/props/props.slint
+#: src/root/props/props.slint ui/phones.slint
 msgid "Model"
 msgstr "الطراز"
 
@@ -1094,7 +1094,7 @@ msgstr "يثبّت Magisk ⁨{}⁩ ويتحقق منه. يعيد التشغيل 
 msgid "Magisk, verified. One reboot."
 msgstr "Magisk مُتحقَّق منه. إعادة تشغيل واحدة."
 
-#: src/root/root.slint
+#: src/root/root.slint ui/phones.slint
 msgid "Root"
 msgstr "الجذر"
 
@@ -1494,7 +1494,7 @@ msgstr "نوى المعالج"
 msgid "of {}"
 msgstr "من ⁨{}⁩"
 
-#: ui/device_form.slint ui/launcher.slint
+#: ui/device_form.slint ui/launcher.slint ui/phones.slint
 msgid "Screen"
 msgstr "الشاشة"
 
@@ -1594,7 +1594,7 @@ msgstr "تُحفظ عند كل إيقاف"
 msgid "This window only"
 msgstr "هذه النافذة فقط"
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Open"
 msgstr "فتح"
 
@@ -1627,11 +1627,11 @@ msgid "A throwaway clone of {}, leased by an agent. Releasing it deletes it."
 msgstr "نسخة مؤقتة من ⁨{}⁩ يحجزها وكيل. تحريرها يحذفها."
 
 # unsure: Android spelled «أندرويد» in prose (as tokens.json and the site); kept Latin in product names (Android SDK, «محاكي Android», trademark line). Switch to Latin everywhere if preferred.
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Android"
 msgstr "أندرويد"
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Hardware"
 msgstr "العتاد"
 
@@ -1639,7 +1639,7 @@ msgstr "العتاد"
 msgid "Root health"
 msgstr "سلامة الجذر"
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Version"
 msgstr "الإصدار"
 
@@ -1651,7 +1651,7 @@ msgstr "صورة النظام"
 msgid "Profile"
 msgstr "ملف التعريف"
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Serial"
 msgstr "الرقم التسلسلي"
 
@@ -1747,9 +1747,113 @@ msgstr "اكتب أمرًا أو اسم جهاز"
 msgid "Nothing matches “{}”."
 msgstr "لا شيء يطابق «⁨{}⁩»."
 
-#: ui/player.slint
+#: ui/phones.slint ui/widgets/panels.slint
+msgid "Wi-Fi"
+msgstr "Wi-Fi"
+
+#: ui/phones.slint
+msgid "USB"
+msgstr "USB"
+
+#: ui/phones.slint
+msgid "Phones"
+msgstr "الهواتف"
+
+#: ui/phones.slint
+msgid "Plug in a phone with USB debugging on."
+msgstr "وصّل هاتفًا مفعَّلًا عليه تصحيح أخطاء USB."
+
+#: ui/phones.slint
+msgid "Screenshot"
+msgstr "لقطة شاشة"
+
+#: ui/phones.slint
+msgid "A phone over adb: no root modes, snapshots or sensor controls."
+msgstr "هاتف عبر adb: بلا أوضاع جذر أو لقطات أو تحكم بالمستشعرات."
+
+#: ui/phones.slint
+msgid "Connecting"
+msgstr "جارٍ الاتصال"
+
+#: ui/phones.slint
+msgid "Waiting for the phone"
+msgstr "بانتظار الهاتف"
+
+#: ui/phones.slint
+msgid "Connection"
+msgstr "الاتصال"
+
+#: ui/phones.slint
+msgid "ABI"
+msgstr "ABI"
+
+#: ui/phones.slint
+msgid "Maker"
+msgstr "الشركة المصنّعة"
+
+#: ui/phones.slint ui/player.slint
+msgid "Battery"
+msgstr "البطارية"
+
+#: ui/phones.slint
+msgid "Via"
+msgstr "عبر"
+
+#: ui/phones.slint
+msgid "State"
+msgstr "الحالة"
+
+#: ui/phones.slint
+msgid "Not available"
+msgstr "غير متاح"
+
+#: ui/phones.slint ui/settings.slint
+msgid "Tools"
+msgstr "الأدوات"
+
+#: ui/phones.slint
+msgid "Stop recording"
+msgstr "إيقاف التسجيل"
+
+#: ui/phones.slint
+msgid "Record"
+msgstr "تسجيل"
+
+#: ui/phones.slint
+msgid "Install APK…"
+msgstr "تثبيت APK…"
+
+#: ui/phones.slint
+msgid "Push file…"
+msgstr "إرسال ملف…"
+
+#: ui/phones.slint
+msgid "Pull file…"
+msgstr "جلب ملف…"
+
+#: ui/phones.slint ui/player.slint
 msgid "Logcat"
 msgstr "Logcat"
+
+#: ui/phones.slint
+msgid "Reboot…"
+msgstr "إعادة التشغيل…"
+
+#: ui/phones.slint
+msgid "Drop an APK on the open screen to install it, or any other file to copy it to Download."
+msgstr "أفلت ملف APK على الشاشة المفتوحة لتثبيته، أو أي ملف آخر لنسخه إلى مجلد Download."
+
+#: ui/phones.slint
+msgid "Details"
+msgstr "التفاصيل"
+
+#: ui/phones.slint
+msgid "Connecting to the screen…"
+msgstr "جارٍ الاتصال بالشاشة…"
+
+#: ui/phones.slint
+msgid "Recording… press the record button again to save it"
+msgstr "جارٍ التسجيل… اضغط زر التسجيل مرة أخرى لحفظه"
 
 #: ui/player.slint
 msgid "Filter tag, pid or text"
@@ -1767,10 +1871,6 @@ msgstr "تتبّع"
 #: ui/player.slint
 msgid "Paused"
 msgstr "متوقف مؤقتًا"
-
-#: ui/player.slint
-msgid "Battery"
-msgstr "البطارية"
 
 #: ui/player.slint
 msgid "GPS"
@@ -1931,10 +2031,6 @@ msgstr "أي عميل MCP آخر"
 #: ui/settings.slint
 msgid "mcp config (JSON)"
 msgstr "إعدادات mcp ⁨(JSON)⁩"
-
-#: ui/settings.slint
-msgid "Tools"
-msgstr "الأدوات"
 
 #: ui/settings.slint
 msgid "Version {} · macOS 14+ · Apple Silicon"
@@ -2112,10 +2208,6 @@ msgstr "5% · بطارية منخفضة"
 #: ui/widgets/panels.slint
 msgid "100% · full"
 msgstr "100% · ممتلئة"
-
-#: ui/widgets/panels.slint
-msgid "Wi-Fi"
-msgstr "Wi-Fi"
 
 #: ui/widgets/panels.slint
 msgid "Mobile data"
