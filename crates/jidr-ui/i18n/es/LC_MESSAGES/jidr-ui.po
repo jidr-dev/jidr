@@ -1342,6 +1342,38 @@ msgstr "Elige una ruta GPX o KML"
 msgid "An Android ID is 16 hexadecimal digits (0–9 and a–f)."
 msgstr "Un Android ID tiene 16 dígitos hexadecimales (0–9 y a–f)."
 
+#: src/widgets/sync.rs
+msgid "Copying changes…"
+msgstr "Copiando cambios…"
+
+#: src/widgets/sync.rs
+msgid "Copying {} of {} files…"
+msgstr "Copiando {} de {} archivos…"
+
+#: src/widgets/sync.rs
+msgid "Start the device first, then sync the folder"
+msgstr "Inicia primero el dispositivo y luego sincroniza la carpeta"
+
+#: src/widgets/sync.rs
+msgid "Syncing {} to {}"
+msgstr "Sincronizando {} en {}"
+
+#: src/widgets/sync.rs
+msgid "Choose a folder to keep copied to the device"
+msgstr "Elige una carpeta para mantenerla copiada en el dispositivo"
+
+#: src/widgets/sync.rs
+msgid "Copying {n} file…"
+msgid_plural "Copying {n} files…"
+msgstr[0] "Copiando {n} archivo…"
+msgstr[1] "Copiando {n} archivos…"
+
+#: src/widgets/sync.rs
+msgid "Up to date · {n} file copied"
+msgid_plural "Up to date · {n} files copied"
+msgstr[0] "Al día · {n} archivo copiado"
+msgstr[1] "Al día · {n} archivos copiados"
+
 #: src/wizard/mod.rs
 msgid "Found · used read-only"
 msgstr "Encontrado · solo lectura"
@@ -1557,7 +1589,7 @@ msgstr "Reanudar"
 msgid "Hibernate"
 msgstr "Hibernar"
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/widgets/panels.slint
 msgid "Stop"
 msgstr "Detener"
 
@@ -2393,6 +2425,18 @@ msgstr "Ninguna"
 #: ui/widgets/panels.slint
 msgid "Applies the next time the device starts."
 msgstr "Se aplica la próxima vez que se inicie el dispositivo."
+
+#: ui/widgets/panels.slint
+msgid "Synced folders"
+msgstr "Carpetas sincronizadas"
+
+#: ui/widgets/panels.slint
+msgid "Sync a folder…"
+msgstr "Sincronizar carpeta…"
+
+#: ui/widgets/panels.slint
+msgid "Copies a folder on this Mac to the device and keeps it up to date, deletions included. Skips .git and node_modules."
+msgstr "Copia una carpeta de este Mac al dispositivo y la mantiene al día, borrados incluidos. Omite .git y node_modules."
 
 #: ui/widgets/panels.slint
 msgid "Latitude"
