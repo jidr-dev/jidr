@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.7.0](https://github.com/jidr-dev/jidr/compare/v0.6.0...v0.7.0) (2026-11-15)
+
+
+### Features
+
+* **adb:** push several sources in one call, quote device shell args ([130f260](https://github.com/jidr-dev/jidr/commit/130f26000641a47d46852d59ffb51680749bd139))
+* **cli:** jidr gamepad list | connect | disconnect ([364308c](https://github.com/jidr-dev/jidr/commit/364308cab26cb34a6ee11aa03511d4b17d7d2453))
+* **cli:** jidr sync start|stop|list ([484e400](https://github.com/jidr-dev/jidr/commit/484e4006702ce714e0f0a5fe05fc3bd5875da722))
+* **daemon:** keep a host folder synced to a device (file.sync.*) ([0256608](https://github.com/jidr-dev/jidr/commit/02566084302ae3dabd97c1f96d6f3e49ed4c5957))
+* game controller passthrough ([#23](https://github.com/jidr-dev/jidr/issues/23)) ([0e7ddbf](https://github.com/jidr-dev/jidr/commit/0e7ddbf435dce93ecc05af5a8529a21b952b935b))
+* **release:** headless Linux x86_64 build of jidr ([45a77da](https://github.com/jidr-dev/jidr/commit/45a77dab59e74364935948228d2548d1f93f9230))
+* **site:** cookieless PostHog analytics ([5d0f9a6](https://github.com/jidr-dev/jidr/commit/5d0f9a671a694a5a162bd2ec76875144663e1adb))
+* synced folders (one-way, Mac → device) ([694724c](https://github.com/jidr-dev/jidr/commit/694724c4240b0761b257a1cba3b81e99aebcbff6))
+* **ui:** game controller toggle in the widgets panel ([04c65de](https://github.com/jidr-dev/jidr/commit/04c65de318d3a32ceceafafcc57e0d81e3e4a332))
+* **ui:** sync a folder from the widget panel ([6d10979](https://github.com/jidr-dev/jidr/commit/6d109799cd0dab5dfc241b8ff02d72a54e25ec4f))
+* **widgets:** forward a game controller to the device ([#23](https://github.com/jidr-dev/jidr/issues/23)) ([a9d63d9](https://github.com/jidr-dev/jidr/commit/a9d63d971a08590e54ebe2ab3eb64470b62a2f02))
+
 ## [0.6.0](https://github.com/jidr-dev/jidr/compare/v0.5.0...v0.6.0) (2026-11-15)
 
 
