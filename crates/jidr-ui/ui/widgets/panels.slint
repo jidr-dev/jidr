@@ -365,7 +365,7 @@ export component MorePanel inherits Rectangle {
     in property <WidgetsVm> vm;
     callback action(string, string);
     Scroll {
-        content-height: 1290px + 116px + root.vm.syncs.length * 40px;
+        content-height: 1290px + 116px + 80px + root.vm.syncs.length * 40px;
         VerticalLayout {
             padding: 16px;
             padding-left: 14px;
@@ -548,6 +548,17 @@ export component MorePanel inherits Rectangle {
                     Button { small: true; has-icon: true; icon: Icons.folder-open; text: @tr("Sync a folder…"); clicked => { root.action("sync.choose", ""); } }
                 }
                 Hint { height: 44px; text: @tr("Copies a folder on this Mac to the device and keeps it up to date, deletions included. Skips .git and node_modules."); }
+            }
+            // Game controller (#23).
+            VerticalLayout {
+                spacing: 8px;
+                Cap { text: @tr("Game controller"); }
+                ToggleRow {
+                    text: @tr("Use this Mac's controller");
+                    hint: @tr("Android sees an Xbox 360 controller.");
+                    checked: root.vm.gamepad;
+                    toggled(v) => { root.action("input.gamepad", v ? "true" : "false"); }
+                }
             }
         }
     }

@@ -110,10 +110,11 @@ jobs:
       matrix:
         api: [30, 33, 35]
         # Every emulator test boots its own device, so the tests are split
-        # across four jobs per API level, balanced by measured run times
-        # (about 8 minutes each). `rest` takes every binary the other shards
-        # don't name, so a new `*_emulator` binary always runs; keep its
-        # exclusion list in sync and move binaries out when it gets slow.
+        # across five jobs per API level, balanced by measured run times
+        # (each under about 15 minutes of tests). `rest` takes every binary
+        # the other shards don't name, so a new `*_emulator` binary always
+        # runs; keep its exclusion list in sync and move binaries out when it
+        # gets slow.
         shard:
           - name: daemon
             filter: binary(~pool_emulator) | binary(~budget_emulator) | binary(~hibernate_emulator) | binary(~resilience_emulator)
@@ -121,12 +122,15 @@ jobs:
             filter: binary(~props_emulator) | binary(~magisk_emulator) | binary(~adb_emulator)
           - name: cacert, mcp, ui
             filter: binary(~cacert_emulator) | binary(agent_tasks) | binary(~player_emulator) | binary(~media_emulator)
+          - name: root, helper
+            filter: binary(~magisk_base_emulator) | binary(~module_emulator) | binary(~writable_emulator) | binary(~helper_emulator)
           - name: rest
             filter: >-
               (binary(~_emulator) | binary(agent_tasks))
               - (binary(~pool_emulator) | binary(~budget_emulator) | binary(~hibernate_emulator) | binary(~resilience_emulator)
               | binary(~props_emulator) | binary(~magisk_emulator) | binary(~adb_emulator)
-              | binary(~cacert_emulator) | binary(agent_tasks) | binary(~player_emulator) | binary(~media_emulator))
+              | binary(~cacert_emulator) | binary(agent_tasks) | binary(~player_emulator) | binary(~media_emulator)
+              | binary(~magisk_base_emulator) | binary(~module_emulator) | binary(~writable_emulator) | binary(~helper_emulator))
     steps:
       - uses: actions/checkout@v4
       - name: Enable KVM

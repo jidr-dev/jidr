@@ -1342,6 +1342,10 @@ msgstr "Elige una ruta GPX o KML"
 msgid "An Android ID is 16 hexadecimal digits (0–9 and a–f)."
 msgstr "Un Android ID tiene 16 dígitos hexadecimales (0–9 y a–f)."
 
+#: src/widgets/mod.rs
+msgid "The game controller was disconnected from this Mac."
+msgstr "El mando se desconectó de este Mac."
+
 #: src/widgets/sync.rs
 msgid "Copying changes…"
 msgstr "Copiando cambios…"
@@ -2437,6 +2441,18 @@ msgstr "Sincronizar carpeta…"
 #: ui/widgets/panels.slint
 msgid "Copies a folder on this Mac to the device and keeps it up to date, deletions included. Skips .git and node_modules."
 msgstr "Copia una carpeta de este Mac al dispositivo y la mantiene al día, borrados incluidos. Omite .git y node_modules."
+
+#: ui/widgets/panels.slint
+msgid "Game controller"
+msgstr "Mando de juegos"
+
+#: ui/widgets/panels.slint
+msgid "Use this Mac's controller"
+msgstr "Usar el mando de este Mac"
+
+#: ui/widgets/panels.slint
+msgid "Android sees an Xbox 360 controller."
+msgstr "Android ve un mando de Xbox 360."
 
 #: ui/widgets/panels.slint
 msgid "Latitude"

@@ -266,6 +266,8 @@ export struct WidgetsVm {
     imei-now: string,
     android-id: string,
     identity-busy: bool,
+    /// A game controller on this Mac drives the device (#23).
+    gamepad: bool,
     /// Synced folders (#27), from `file.sync.list`.
     syncs: [SyncVm],
 }

@@ -13,9 +13,9 @@ use std::time::Duration;
 
 use clap::{CommandFactory, Parser};
 use cli::{
-    AudioCmd, BaseCmd, CacheCmd, CertCmd, Cli, Cmd, DaemonCmd, DeviceCmd, Hardware, ImageCmd,
-    JobsCmd, NetworkCmd, PoolCmd, ProfileCmd, ProxyCmd, RootCmd, SdkCmd, Selection, SettingsCmd,
-    SnapshotCmd, SyncCmd,
+    AudioCmd, BaseCmd, CacheCmd, CertCmd, Cli, Cmd, DaemonCmd, DeviceCmd, GamepadCmd, Hardware,
+    ImageCmd, JobsCmd, NetworkCmd, PoolCmd, ProfileCmd, ProxyCmd, RootCmd, SdkCmd, Selection,
+    SettingsCmd, SnapshotCmd, SyncCmd,
 };
 use jidr_client::{Client, SpawnOptions};
 use jidr_core::{ErrorCode, JidrError, JidrPaths, JidrResult, Job, JobState};
@@ -980,6 +980,64 @@ async fn dispatch(c: &Client, cmd: Cmd, out: Out) -> JidrResult<()> {
                     format!("Stopping the audio on {device}.")
                 } else {
                     format!("No audio is playing on {device}.")
+                }
+            });
+        }
+        Cmd::Gamepad {
+            cmd: GamepadCmd::List,
+        } => {
+            let v = c
+                .call("input.gamepad.list", json!({}))
+                .await
+                .map_err(|e| missing_provider("input.gamepad.list", e))?;
+            out.ok(&v, output::gamepads);
+        }
+        Cmd::Gamepad {
+            cmd:
+                GamepadCmd::Connect {
+                    device,
+                    controller,
+                    no_wait,
+                },
+        } => {
+            let v = c
+                .call(
+                    "input.gamepad.connect",
+                    json!({ "device": device, "controller": controller }),
+                )
+                .await
+                .map_err(|e| missing_provider("input.gamepad.connect", e))?;
+            if no_wait {
+                out.ok(&v, |v| {
+                    format!(
+                        "Controller job {}; stop it with `jidr gamepad disconnect {device}`",
+                        v["job"].as_str().unwrap_or("?")
+                    )
+                });
+            } else {
+                let job = follow(c, out, v, None);
+                tokio::pin!(job);
+                let v = tokio::select! {
+                    r = &mut job => r?,
+                    _ = tokio::signal::ctrl_c() => {
+                        c.call("input.gamepad.disconnect", json!({ "device": device })).await?;
+                        job.await?
+                    }
+                };
+                out.ok(&v, output::gamepad);
+            }
+        }
+        Cmd::Gamepad {
+            cmd: GamepadCmd::Disconnect { device },
+        } => {
+            let v = c
+                .call("input.gamepad.disconnect", json!({ "device": device }))
+                .await?;
+            out.ok(&v, |v| {
+                if v["disconnected"] == true {
+                    format!("Disconnecting the controller from {device}.")
+                } else {
+                    format!("No controller is forwarded to {device}.")
                 }
             });
         }

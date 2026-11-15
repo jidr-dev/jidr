@@ -113,6 +113,16 @@ impl Adb {
             .map_err(|e| JidrError::sdk(format!("cannot run adb at {}: {e}", self.bin.display())))
     }
 
+    /// Like [`spawn`](Self::spawn), with a piped stdin to feed a long-lived
+    /// guest command (`shell hid -`). Closing it ends the command.
+    pub fn spawn_with_stdin(&self, args: &[&str]) -> JidrResult<Child> {
+        self.command(args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .spawn()
+            .map_err(|e| JidrError::sdk(format!("cannot run adb at {}: {e}", self.bin.display())))
+    }
+
     /// Runs adb and returns its output, whatever the exit status.
     pub async fn raw(&self, args: &[&str]) -> JidrResult<Output> {
         let child = self.command(args).spawn().map_err(|e| {

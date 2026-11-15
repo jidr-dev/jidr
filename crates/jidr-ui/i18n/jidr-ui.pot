@@ -1329,6 +1329,10 @@ msgstr ""
 msgid "An Android ID is 16 hexadecimal digits (0–9 and a–f)."
 msgstr ""
 
+#: src/widgets/mod.rs
+msgid "The game controller was disconnected from this Mac."
+msgstr ""
+
 #: src/widgets/sync.rs
 msgid "Copying changes…"
 msgstr ""
@@ -2419,6 +2423,18 @@ msgstr ""
 
 #: ui/widgets/panels.slint
 msgid "Copies a folder on this Mac to the device and keeps it up to date, deletions included. Skips .git and node_modules."
+msgstr ""
+
+#: ui/widgets/panels.slint
+msgid "Game controller"
+msgstr ""
+
+#: ui/widgets/panels.slint
+msgid "Use this Mac's controller"
+msgstr ""
+
+#: ui/widgets/panels.slint
+msgid "Android sees an Xbox 360 controller."
 msgstr ""
 
 #: ui/widgets/panels.slint

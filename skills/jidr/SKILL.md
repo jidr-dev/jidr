@@ -50,7 +50,7 @@ jidr logcat Phone --clear
 
 To keep a folder on the Mac copied to a running device while you edit it (web assets, fixtures), use `jidr sync start Phone <folder> [device-folder]` (default `/sdcard/Download/<folder name>`); it waits for the first copy, then mirrors each change, deletions included, until `jidr sync stop <id>` or the device stops. It skips `.git`, `node_modules` and `.DS_Store` and refuses folders with more than 10000 files. `jidr sync list` shows what's syncing. Sync only folders the user named.
 
-Other protocol commands work the same way through `jidr call`: `network.set`, `gps.set`, `battery.set`, `clipboard.set`, `media.record` / `media.record_stop` and more. `jidr audio inject <device> <file.wav>` plays a WAV as the device's microphone (`jidr audio stop <device>` ends it). `jidr commands` lists them all. A call with a missing param fails with `missing field <name>`, which tells you what to add.
+Other protocol commands work the same way through `jidr call`: `network.set`, `gps.set`, `battery.set`, `clipboard.set`, `media.record` / `media.record_stop` and more. `jidr audio inject <device> <file.wav>` plays a WAV as the device's microphone (`jidr audio stop <device>` ends it). `jidr gamepad connect <device>` lets a game controller on the user's Mac drive the device until `jidr gamepad disconnect <device>`. `jidr commands` lists them all. A call with a missing param fails with `missing field <name>`, which tells you what to add.
 
 ## Snapshots, stop and clean up
 

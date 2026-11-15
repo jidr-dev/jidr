@@ -1,6 +1,6 @@
 //! `CommandProvider` for sensors, phone, network, dev tools, screenshots,
-//! recording, microphone injection and snapshots (plan Phases 8a, 8b, 10a,
-//! 10b; #70). Registered in the daemon by Stream A through [`provider`]
+//! recording, microphone injection, snapshots and game controllers (plan
+//! Phases 8a, 8b, 10a, 10b; #70, #23). Registered in the daemon by Stream A through [`provider`]
 //! (gap A1). Apache-2.0, no Slint.
 
 use std::sync::Arc;
@@ -17,11 +17,13 @@ pub mod battery;
 pub mod device;
 pub mod devtools;
 pub mod extras;
+pub mod gamepad;
 pub mod gps;
 pub mod identity;
 pub mod media;
 pub mod network;
 pub mod phone;
+pub mod running;
 pub mod sensors;
 pub mod snapshots;
 
@@ -35,6 +37,7 @@ pub struct WidgetsProvider {
     routes: gps::Routes,
     recordings: media::Recordings,
     injections: audio::Injections,
+    pads: gamepad::Pads,
 }
 
 #[async_trait]
@@ -53,6 +56,7 @@ impl CommandProvider for WidgetsProvider {
         v.extend(phone::specs());
         v.extend(devtools::specs());
         v.extend(extras::specs());
+        v.extend(gamepad::specs());
         v.extend(gps::specs());
         v.extend(identity::specs());
         v.extend(media::specs());
@@ -71,6 +75,7 @@ impl CommandProvider for WidgetsProvider {
             "key" | "dev" | "clipboard" => devtools::call(ctx, method, params).await,
             "fingerprint" | "camera" => extras::call(ctx, method, params).await,
             "gps" => gps::call(ctx, &self.routes, method, params).await,
+            "input" => gamepad::call(ctx, &self.pads, method, params).await,
             "identity" => identity::call(ctx, method, params).await,
             "media" => media::call(ctx, &self.recordings, method, params).await,
             "snapshot" => snapshots::call(ctx, method, params).await,
