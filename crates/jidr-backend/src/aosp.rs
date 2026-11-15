@@ -199,13 +199,26 @@ impl AospBackend {
         let check = |stage: &str| -> JidrResult<()> {
             cancel.check()?;
             if let Some(code) = *exit.borrow() {
-                return Err(JidrError::sdk(format!(
-                    "emulator exited ({}) while {stage}; see {}",
-                    code.map(|c| c.to_string())
-                        .unwrap_or_else(|| "signal".into()),
-                    log_path.display()
-                ))
-                .with_data(serde_json::json!({"log": log_path, "tail": log_tail(log_path, 20)})));
+                let tail = log_tail(log_path, 20);
+                let code = code
+                    .map(|c| c.to_string())
+                    .unwrap_or_else(|| "signal".into());
+                let message = if mentions_kvm(&tail) {
+                    let advice = jidr_sdk::host::kvm_problem().unwrap_or_else(|| {
+                        "check that /dev/kvm exists and that this user can open it".into()
+                    });
+                    format!(
+                        "emulator exited ({code}) while {stage}: it needs KVM. {advice}; see {}",
+                        log_path.display()
+                    )
+                } else {
+                    format!(
+                        "emulator exited ({code}) while {stage}; see {}",
+                        log_path.display()
+                    )
+                };
+                return Err(JidrError::sdk(message)
+                    .with_data(serde_json::json!({"log": log_path, "tail": tail})));
             }
             if started.elapsed() > opts.boot_timeout {
                 return Err(JidrError::boot_timeout(format!(
@@ -527,6 +540,17 @@ impl Backend for AospBackend {
     }
 }
 
+/// True when the emulator's log says it stopped for lack of KVM, e.g.
+/// "/dev/kvm is not found" or "This user doesn't have permissions to use KVM".
+fn mentions_kvm(tail: &[String]) -> bool {
+    tail.iter().any(|l| {
+        let l = l.to_ascii_lowercase();
+        l.contains("/dev/kvm")
+            || (l.contains("kvm") && l.contains("permission"))
+            || l.contains("requires hardware acceleration")
+    })
+}
+
 pub async fn process_alive(pid: u32) -> bool {
     Command::new("kill")
         .args(["-0", &pid.to_string()])
@@ -688,6 +712,40 @@ mod tests {
         // Ports were released: the same pair is handed out again.
         let again = backend.ports().allocate().unwrap();
         assert_eq!(again.console % 2, 0);
+    }
+
+    /// Linux without KVM (#50): the emulator quits at once, and start says
+    /// it needs KVM instead of only "exited".
+    #[tokio::test]
+    async fn a_kvm_failure_is_named() {
+        let dir = tempfile::tempdir().unwrap();
+        let emu = dir.path().join("emulator");
+        std::fs::write(
+            &emu,
+            "#!/bin/sh\necho 'ERROR | x86_64 emulation currently requires hardware acceleration!' >&2\necho 'CPU acceleration status: /dev/kvm is not found: VT feature disabled in BIOS/UEFI' >&2\nexit 1\n",
+        )
+        .unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&emu, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let s = LaunchSpec {
+            emulator: emu,
+            log_dir: dir.path().join("logs"),
+            ..spec()
+        };
+        let err = AospBackend::new()
+            .start(&s, &LaunchOptions::default(), &|_| {}, &Cancel::new())
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, ErrorCode::Sdk, "{err}");
+        assert!(err.message.contains("it needs KVM"), "{err}");
+        assert!(err.message.contains("/dev/kvm"), "{err}");
+        assert!(!mentions_kvm(&["FATAL: no such AVD".to_string()]));
+        assert!(mentions_kvm(&[
+            "This user doesn't have permissions to use KVM".to_string()
+        ]));
     }
 
     /// Regression (Phase 13c): the emulator's default 20 s kill timer cut the
