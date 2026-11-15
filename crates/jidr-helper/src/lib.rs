@@ -10,10 +10,13 @@
 //!
 //! - [`rpc`]: the wire types, shared by both sides;
 //! - [`server`]: the request loop, independent of the socket;
-//! - [`netem`]: packet loss with `tc … netem` (#17);
+//! - [`netem`]: packet loss and bad DNS with `tc` (#17);
 //! - [`identity`]: the Android ID, as apps read it (#19);
-//! - [`testing`]: a fake guest for offline tests.
+//! - [`testing`]: a fake guest for offline tests, on the fake kernel in
+//!   `fake`.
 
+#[cfg(any(test, feature = "host"))]
+pub mod fake;
 pub mod identity;
 pub mod netem;
 pub mod rpc;
