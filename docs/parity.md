@@ -42,7 +42,7 @@ Tests named `*_emulator` run on a real emulator: on Linux KVM in CI (API 30, 33,
 | Biometrics | Paid | 🚧 | Fingerprint touch and remove: `widgets_core_commands` (the fingerprint HAL is checked on HIDL and AIDL images). Dirty / partial / insufficient / too fast: ⏭️ [#22](https://github.com/jidr-dev/jidr/issues/22) |
 | Android controls (D-pad, volume, media keys) | Paid | ✅ | `widgets_core_commands` (Home → launcher focus, volume panel) |
 | Dev tools (show taps, pointer location, layout bounds, animations) | Paid | ✅ | `widgets_core_commands` (`dev.set`, read back with `settings get` and `getprop debug.layout`) |
-| Gamepad | Paid | ⏭️ | [#23](https://github.com/jidr-dev/jidr/issues/23) |
+| Gamepad | Paid | 🚧 | `input.gamepad.*` ([#23](https://github.com/jidr-dev/jidr/issues/23)) replays a controller on this Mac into the device as a USB Xbox 360 controller through AOSP's `hid` command, no root: the HID descriptor, reports and forwarding loop in `crates/jidr-widgets/src/gamepad/` (unit tests), the commands against the fake backend in `crates/jidr-widgets/tests/gamepad.rs`. The guest side was checked by hand on API 30 and 35 (`dumpsys input`: `GAMEPAD \| JOYSTICK`, `Vendor_045e_Product_028e.kl`, `BUTTON_A` and joystick events); not yet run with a physical controller. macOS hosts only |
 | Device Link | Free | ❌ | Rejected (D37) |
 | Clipboard sharing | Free | 🚧 | `clipboard.get` / `clipboard.set` tested in `widgets_core_commands`; the two-way sharing toggle in the player (`crates/jidr-ui/src/player/session.rs`) isn't |
 | Drag-drop APK / files | Free | ✅ | `crates/jidr-ui/src/player/drop.rs:79` `drops_route_by_type_and_root`; manual check (a dropped APK installed and opened) |
@@ -65,5 +65,5 @@ Tests named `*_emulator` run on a real emulator: on Linux KVM in CI (API 30, 33,
   - There's no signed release yet; v0.1.0 is in preparation.
   - Quick boot is slower than its target.
   - A few emulator tests are still flaky on shared CI runners.
-  - Several paid-tier niches are partial or post-MVP: motion presets, file-based camera, microphone injection (not yet run on an emulator), biometric scenarios, network loss and DNS, identifiers (the IMEI can't be changed), disk limits, gamepad.
+  - Several paid-tier niches are partial or post-MVP: motion presets, file-based camera, microphone injection (not yet run on an emulator), biometric scenarios, network loss and DNS, identifiers (the IMEI can't be changed), disk limits, gamepad (no emulator test yet).
   - Clipboard sharing in the player isn't finished.

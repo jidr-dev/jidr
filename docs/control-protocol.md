@@ -604,6 +604,39 @@ System images for this host, installed or available
 |---|---|---|---|
 | `available` | boolean |  | Include images that aren't installed (needs network; falls back to installed images when offline). |
 
+### `input.*`
+
+#### `input.gamepad.connect`
+
+Forward a game controller on this computer to the device until input.gamepad.disconnect · long-running (job)
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes | Device name or id. |
+| `controller` | integer |  | Which controller: an `id` from `input.gamepad.list`. Default: the first one connected. |
+
+#### `input.gamepad.disconnect`
+
+Stop forwarding the game controller to the device
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes | Device name or id. |
+
+#### `input.gamepad.get`
+
+Whether a game controller is being forwarded to the device
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes | Device name or id. |
+
+#### `input.gamepad.list`
+
+List the game controllers connected to this computer
+
+No params.
+
 ### `jobs.*`
 
 #### `jobs.cancel`
@@ -1237,3 +1270,4 @@ Save a snapshot of a running device · long-running (job) · locks the device
 | 0.1 (additive) | #92 (D46, proposed): physical phones over plain adb, from the new `physical` provider in the daemon. `physical.list` → `[PhysicalDevice]` (`{serial, state: ready \| unauthorized \| offline \| no_permissions \| connecting \| other, connection: usb \| wifi, model?, manufacturer?, product?, android?, api?, abi?, battery?: {level, charging}, usb?, hint?}`), `physical.details {device}` (adds `screen: {width, height, density?}`), `physical.connect_info {device}` → `{serial, adb_path}`, `physical.screenshot {device, path?}` → `{path, width, height}`, `physical.record {device, path?, max_seconds?}` (long-running; `screenrecord`, at most 180 s) → `{path, seconds}` and `physical.record_stop {device}`, `physical.install`, `physical.push`, `physical.pull`, `physical.logcat` (same params and results as `file.install`, `file.push`, `file.pull`, `logcat.dump`), `physical.shell {device, command}` (destructive) → `{exit_code, stdout, stderr}`, `physical.reboot`, `physical.tap {device, x, y}`, `physical.swipe {device, x1, y1, x2, y2, duration_ms?}`, `physical.key {device, key}`, `physical.text {device, text}`. New events `physical.connected`, `physical.changed`, `physical.disconnected`. `logcat.follow` also accepts a ready phone's serial (its `logcat` events then carry the serial as `device`). No existing command's result changed. |
 | 0.1 (additive) | #19: `identity.get {device}` → `{android_id, imei}` (each null when unknown; no root needed) and `identity.set {device, android_id}` (a job; locks the device) → the same, widgets provider. `android_id` (16 hex digits, any case, returned in lower case) is given to every installed app as its SSAID through the rooted on-device helper (helper method `identity.android_id.set`, which restarts the Android framework) and then set as the global setting. It needs root mode `adb` or `magisk` (`usage` otherwise); a bad ID is `usage` with `error.data.field: "android_id"`. The IMEI is read only. No existing command changed. |
 | 0.1 (additive) | #17 (D44): `network.shaping.set` gains optional `dns` (`normal` \| `slow` \| `fail`) and `dns_delay_ms` (1–30000, default 3000; alone it means `slow`), and `loss_pct` becomes optional: a field left out keeps the device's current value, and giving none is `usage`. Both commands' results gain `dns` and `dns_delay_ms` (null when interfaces differ, or when DNS isn't `slow`), and each interface gains `dns` and `dns_delay_ms`. `Device` gains `network_shaping {loss_pct, dns, dns_delay_ms?}` (absent when off): what `set` stored, re-applied by the widgets boot hook after every boot (skipped when the kernel already has it; reported as `device.hook_failed` when the root mode is `none`). Clearing (`0` and `normal`) forgets it, and on a `none` device works without the helper, returning `interfaces: []`. The helper's protocol becomes 2 (internal). With no interface that has a default route (Wi-Fi and mobile data off, or not up yet), both commands now fail with `usage` instead of `unexpected` (`helper_error: "usage"`); and they also cover interfaces that still have Jidr's qdisc after losing their route, so clearing leaves none behind. No existing field changed meaning. |
+| 0.1 (additive) | #23: game controllers, widgets provider. `input.gamepad.list` → `{controllers: [{id, name, vendor?, product?}]}` (the controllers on this computer; macOS only for now, `usage` elsewhere). `input.gamepad.connect {device, controller?}` (long-running) replays the controller into the device as a virtual USB Xbox 360 controller, made with AOSP's `hid` command over `adb shell` (no root), until `input.gamepad.disconnect {device}` → `{disconnected}`, a cancel, the controller going away or the device stopping → `{controller, reports, ended: disconnected \| unplugged \| device_stopped}`; one per device (`busy`), `not_found` with no controller, `usage` when the guest has no `hid` command. `input.gamepad.get {device}` → `{connected}`. No existing command changed. |

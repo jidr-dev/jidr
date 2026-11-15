@@ -56,6 +56,7 @@ jidr --json device start Phone --timeout 300 || exit $?
 | `network dns <name> [normal\|slow\|fail] [--delay-ms MS]` | Bad DNS on Wi-Fi and mobile data: `slow` delays each DNS query (`--delay-ms`, 1–30000, default 3000, Genymotion's "bad DNS" profile; `--delay-ms` alone means `slow`), `fail` drops them so lookups time out, `normal` undoes it; without a mode, show it. Needs root mode `adb` or `magisk` and API 31 or later (API 30's kernel has no netem or prio qdisc: exit 2). Kept across cold boots the same way as the loss, and independent of it. |
 | `identity <name> [--android-id id]` | Without `--android-id`, show the device's Android ID and IMEI (`identity.get`, no root needed). `--android-id` (16 hex digits) gives that ID to every installed app (its SSAID) and to `settings get secure android_id`, restarting the Android framework (`identity.set`, a job, through the on-device helper; needs root mode `adb` or `magisk`). It's kept across cold boots. The IMEI is read only. See docs/root.md. |
 | `audio inject <name> <file> [--loop] [--rate Hz [--channels 1\|2]] [--no-wait]`, `audio stop <name>` | Play a WAV as the device's microphone (widgets provider, `audio.*`); `--rate` reads the file as headerless 16-bit PCM. See [Microphone](#microphone). |
+| `gamepad list`, `gamepad connect <name> [--controller ID] [--no-wait]`, `gamepad disconnect <name>` | Drive a running device with a game controller connected to this Mac (widgets provider, `input.gamepad.*`). See [Game controller](#game-controller). |
 | `jobs list [--all]`, `jobs wait <job>`, `jobs cancel <job>` | Long-running operations. |
 | `commands` | Every protocol command (what the GUI and MCP see). |
 | `call <method> [params-json]` | Call any protocol command directly, e.g. `jidr call device.start '{"device":"Phone","cold_boot":true}'`. Follows jobs. |
@@ -143,6 +144,19 @@ jidr audio inject Phone capture.pcm --rate 16000      # headerless 16-bit little
 ```
 
 Jidr streams the file over the emulator's gRPC `injectAudio`. WAV files can be 8- or 16-bit PCM (sent as they are), or 24/32-bit PCM or 32/64-bit float (converted to 16-bit), mono or stereo, at 8–48 kHz. Other files, other rates and more channels exit 2; convert them first, e.g. `afconvert -f WAVE -d LEI16@44100 in.m4a out.wav`. The audio plays as the device reads its microphone: start the app's recording before or after, and if nothing records, playback waits (the progress stops) until something does or you stop it. `--loop` repeats until `audio stop`; `jobs cancel` also ends it. One file plays at a time per device; a second `audio inject` exits 4. The Mac's own microphone isn't routed to the device (yet).
+
+## Game controller
+
+Play a game on the device with a controller connected to this Mac (USB or Bluetooth: Xbox, PlayStation, Switch Pro and others macOS sees):
+
+```bash
+jidr gamepad list                      # the controllers on this Mac, with their ids
+jidr gamepad connect Phone             # the first controller drives Phone until Ctrl-C
+jidr gamepad connect Phone --controller 1 --no-wait
+jidr gamepad disconnect Phone
+```
+
+The device sees a USB Xbox 360 controller, whatever you hold: Android loads its stock key layout for it, and games read the left and right sticks, both triggers, the D-pad, A/B/X/Y, the bumpers, Back, Start, Guide and the stick clicks. Jidr adds that controller with Android's own `hid` command over `adb shell`, which needs no root, and replays every button and stick change into it. Disconnecting (or Ctrl-C) removes it from the device. One controller per device; a second `gamepad connect` exits 4. The job also ends when the controller is switched off or unplugged, or the device stops. Rumble isn't sent back to the controller. Reading controllers works on macOS only for now.
 
 ## Phones
 
