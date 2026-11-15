@@ -327,7 +327,7 @@ msgstr "未 Root"
 msgid "Shell root (adb)"
 msgstr "Shell Root（adb）"
 
-#: src/model.rs
+#: src/model.rs ui/phones.slint
 msgid "Shell"
 msgstr "Shell"
 
@@ -740,7 +740,7 @@ msgstr "构建标识已保存。重启后生效。"
 msgid "Build identity saved. It applies on the next start."
 msgstr "构建标识已保存，将在下次启动时生效。"
 
-#: src/root/props/props.slint
+#: src/root/props/props.slint ui/phones.slint
 msgid "Model"
 msgstr "型号"
 
@@ -1047,7 +1047,7 @@ msgstr "安装并验证 Magisk {}。重启一次（约 40 秒）。"
 msgid "Magisk, verified. One reboot."
 msgstr "Magisk，已验证。需重启一次。"
 
-#: src/root/root.slint
+#: src/root/root.slint ui/phones.slint
 msgid "Root"
 msgstr "Root"
 
@@ -1426,7 +1426,7 @@ msgstr "CPU 核心数"
 msgid "of {}"
 msgstr "共 {} 个"
 
-#: ui/device_form.slint ui/launcher.slint
+#: ui/device_form.slint ui/launcher.slint ui/phones.slint
 msgid "Screen"
 msgstr "屏幕"
 
@@ -1519,7 +1519,7 @@ msgstr "每次停止时保存"
 msgid "This window only"
 msgstr "仅此窗口"
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Open"
 msgstr "打开"
 
@@ -1552,11 +1552,11 @@ msgstr "只读的基础设备：智能体通过 pool.get 租用它的一次性�
 msgid "A throwaway clone of {}, leased by an agent. Releasing it deletes it."
 msgstr "{} 的一次性克隆，由智能体租用。释放后即被删除。"
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Android"
 msgstr "Android"
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Hardware"
 msgstr "硬件"
 
@@ -1564,7 +1564,7 @@ msgstr "硬件"
 msgid "Root health"
 msgstr "Root 状态"
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Version"
 msgstr "版本"
 
@@ -1576,7 +1576,7 @@ msgstr "映像"
 msgid "Profile"
 msgstr "配置文件"
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Serial"
 msgstr "序列号"
 
@@ -1673,9 +1673,114 @@ msgstr "输入命令或设备名称"
 msgid "Nothing matches “{}”."
 msgstr "没有与“{}”匹配的结果。"
 
-#: ui/player.slint
+# unsure: WLAN as Android in mainland China says; macOS says 无线局域网, many apps keep Wi-Fi.
+#: ui/phones.slint ui/widgets/panels.slint
+msgid "Wi-Fi"
+msgstr "WLAN"
+
+#: ui/phones.slint
+msgid "USB"
+msgstr "USB"
+
+#: ui/phones.slint
+msgid "Phones"
+msgstr "手机"
+
+#: ui/phones.slint
+msgid "Plug in a phone with USB debugging on."
+msgstr "连接一部已开启 USB 调试的手机。"
+
+#: ui/phones.slint
+msgid "Screenshot"
+msgstr "截屏"
+
+#: ui/phones.slint
+msgid "A phone over adb: no root modes, snapshots or sensor controls."
+msgstr "通过 adb 连接的手机：没有 Root 模式、快照或传感器控制。"
+
+#: ui/phones.slint
+msgid "Connecting"
+msgstr "正在连接"
+
+#: ui/phones.slint
+msgid "Waiting for the phone"
+msgstr "正在等待手机"
+
+#: ui/phones.slint
+msgid "Connection"
+msgstr "连接"
+
+#: ui/phones.slint
+msgid "ABI"
+msgstr "ABI"
+
+#: ui/phones.slint
+msgid "Maker"
+msgstr "制造商"
+
+#: ui/phones.slint ui/player.slint
+msgid "Battery"
+msgstr "电池"
+
+#: ui/phones.slint
+msgid "Via"
+msgstr "连接方式"
+
+#: ui/phones.slint
+msgid "State"
+msgstr "状态"
+
+#: ui/phones.slint
+msgid "Not available"
+msgstr "不可用"
+
+#: ui/phones.slint ui/settings.slint
+msgid "Tools"
+msgstr "工具"
+
+#: ui/phones.slint
+msgid "Stop recording"
+msgstr "停止录制"
+
+#: ui/phones.slint
+msgid "Record"
+msgstr "录制"
+
+#: ui/phones.slint
+msgid "Install APK…"
+msgstr "安装 APK…"
+
+#: ui/phones.slint
+msgid "Push file…"
+msgstr "推送文件…"
+
+#: ui/phones.slint
+msgid "Pull file…"
+msgstr "拉取文件…"
+
+#: ui/phones.slint ui/player.slint
 msgid "Logcat"
 msgstr "Logcat"
+
+#: ui/phones.slint
+msgid "Reboot…"
+msgstr "重启…"
+
+#: ui/phones.slint
+msgid "Drop an APK on the open screen to install it, or any other file to copy it to Download."
+msgstr "将 APK 拖放到打开的屏幕上即可安装，拖放其他文件则复制到 Download。"
+
+#: ui/phones.slint
+msgid "Details"
+msgstr "详细信息"
+
+#: ui/phones.slint
+msgid "Connecting to the screen…"
+msgstr "正在连接屏幕…"
+
+#: ui/phones.slint
+msgid "Recording… press the record button again to save it"
+msgstr "正在录制…再次按录制按钮即可保存"
 
 #: ui/player.slint
 msgid "Filter tag, pid or text"
@@ -1692,10 +1797,6 @@ msgstr "跟随"
 #: ui/player.slint
 msgid "Paused"
 msgstr "已暂停"
-
-#: ui/player.slint
-msgid "Battery"
-msgstr "电池"
 
 #: ui/player.slint
 msgid "GPS"
@@ -1851,10 +1952,6 @@ msgstr "其他 MCP 客户端"
 #: ui/settings.slint
 msgid "mcp config (JSON)"
 msgstr "mcp 配置（JSON）"
-
-#: ui/settings.slint
-msgid "Tools"
-msgstr "工具"
 
 #: ui/settings.slint
 msgid "Version {} · macOS 14+ · Apple Silicon"
@@ -2026,11 +2123,6 @@ msgstr "5% · 低电量"
 #: ui/widgets/panels.slint
 msgid "100% · full"
 msgstr "100% · 已充满"
-
-# unsure: WLAN as Android in mainland China says; macOS says 无线局域网, many apps keep Wi-Fi.
-#: ui/widgets/panels.slint
-msgid "Wi-Fi"
-msgstr "WLAN"
 
 #: ui/widgets/panels.slint
 msgid "Mobile data"
