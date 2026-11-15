@@ -325,7 +325,7 @@ msgstr ""
 msgid "Shell root (adb)"
 msgstr ""
 
-#: src/model.rs
+#: src/model.rs ui/phones.slint
 msgid "Shell"
 msgstr ""
 
@@ -745,7 +745,7 @@ msgstr ""
 msgid "Build identity saved. It applies on the next start."
 msgstr ""
 
-#: src/root/props/props.slint
+#: src/root/props/props.slint ui/phones.slint
 msgid "Model"
 msgstr ""
 
@@ -1049,7 +1049,7 @@ msgstr ""
 msgid "Magisk, verified. One reboot."
 msgstr ""
 
-#: src/root/root.slint
+#: src/root/root.slint ui/phones.slint
 msgid "Root"
 msgstr ""
 
@@ -1429,7 +1429,7 @@ msgstr ""
 msgid "of {}"
 msgstr ""
 
-#: ui/device_form.slint ui/launcher.slint
+#: ui/device_form.slint ui/launcher.slint ui/phones.slint
 msgid "Screen"
 msgstr ""
 
@@ -1523,7 +1523,7 @@ msgstr ""
 msgid "This window only"
 msgstr ""
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Open"
 msgstr ""
 
@@ -1555,11 +1555,11 @@ msgstr ""
 msgid "A throwaway clone of {}, leased by an agent. Releasing it deletes it."
 msgstr ""
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Android"
 msgstr ""
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Hardware"
 msgstr ""
 
@@ -1567,7 +1567,7 @@ msgstr ""
 msgid "Root health"
 msgstr ""
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Version"
 msgstr ""
 
@@ -1579,7 +1579,7 @@ msgstr ""
 msgid "Profile"
 msgstr ""
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Serial"
 msgstr ""
 
@@ -1675,8 +1675,112 @@ msgstr ""
 msgid "Nothing matches “{}”."
 msgstr ""
 
-#: ui/player.slint
+#: ui/phones.slint ui/widgets/panels.slint
+msgid "Wi-Fi"
+msgstr ""
+
+#: ui/phones.slint
+msgid "USB"
+msgstr ""
+
+#: ui/phones.slint
+msgid "Phones"
+msgstr ""
+
+#: ui/phones.slint
+msgid "Plug in a phone with USB debugging on."
+msgstr ""
+
+#: ui/phones.slint
+msgid "Screenshot"
+msgstr ""
+
+#: ui/phones.slint
+msgid "A phone over adb: no root modes, snapshots or sensor controls."
+msgstr ""
+
+#: ui/phones.slint
+msgid "Connecting"
+msgstr ""
+
+#: ui/phones.slint
+msgid "Waiting for the phone"
+msgstr ""
+
+#: ui/phones.slint
+msgid "Connection"
+msgstr ""
+
+#: ui/phones.slint
+msgid "ABI"
+msgstr ""
+
+#: ui/phones.slint
+msgid "Maker"
+msgstr ""
+
+#: ui/phones.slint ui/player.slint
+msgid "Battery"
+msgstr ""
+
+#: ui/phones.slint
+msgid "Via"
+msgstr ""
+
+#: ui/phones.slint
+msgid "State"
+msgstr ""
+
+#: ui/phones.slint
+msgid "Not available"
+msgstr ""
+
+#: ui/phones.slint ui/settings.slint
+msgid "Tools"
+msgstr ""
+
+#: ui/phones.slint
+msgid "Stop recording"
+msgstr ""
+
+#: ui/phones.slint
+msgid "Record"
+msgstr ""
+
+#: ui/phones.slint
+msgid "Install APK…"
+msgstr ""
+
+#: ui/phones.slint
+msgid "Push file…"
+msgstr ""
+
+#: ui/phones.slint
+msgid "Pull file…"
+msgstr ""
+
+#: ui/phones.slint ui/player.slint
 msgid "Logcat"
+msgstr ""
+
+#: ui/phones.slint
+msgid "Reboot…"
+msgstr ""
+
+#: ui/phones.slint
+msgid "Drop an APK on the open screen to install it, or any other file to copy it to Download."
+msgstr ""
+
+#: ui/phones.slint
+msgid "Details"
+msgstr ""
+
+#: ui/phones.slint
+msgid "Connecting to the screen…"
+msgstr ""
+
+#: ui/phones.slint
+msgid "Recording… press the record button again to save it"
 msgstr ""
 
 #: ui/player.slint
@@ -1693,10 +1797,6 @@ msgstr ""
 
 #: ui/player.slint
 msgid "Paused"
-msgstr ""
-
-#: ui/player.slint
-msgid "Battery"
 msgstr ""
 
 #: ui/player.slint
@@ -1851,10 +1951,6 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "mcp config (JSON)"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Tools"
 msgstr ""
 
 #: ui/settings.slint
@@ -2025,10 +2121,6 @@ msgstr ""
 
 #: ui/widgets/panels.slint
 msgid "100% · full"
-msgstr ""
-
-#: ui/widgets/panels.slint
-msgid "Wi-Fi"
 msgstr ""
 
 #: ui/widgets/panels.slint
