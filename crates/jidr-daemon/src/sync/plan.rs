@@ -624,7 +624,12 @@ mod tests {
     fn the_root_is_never_removed_and_a_rescan_covers_all() {
         let ignore = Ignore::new(true, &[]);
         let changed = BTreeSet::from([p(""), p("a")]);
-        assert!(plan(&changed, &ignore, |_| Now::Gone).is_empty());
+        // The folder itself is skipped; what was inside it still goes.
+        assert_eq!(
+            plan(&changed, &ignore, |_| Now::Gone),
+            vec![Op::Remove(p("a"))]
+        );
+        assert!(plan(&BTreeSet::from([p("")]), &ignore, |_| Now::Gone).is_empty());
         assert_eq!(
             plan(&changed, &ignore, |_| Now::Dir),
             vec![Op::PushDir(p(""))]
