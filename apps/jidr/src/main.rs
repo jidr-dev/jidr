@@ -381,7 +381,11 @@ async fn before_connect(paths: &JidrPaths, cmd: &Cmd, out: Out) -> JidrResult<bo
             for p in &report.kept {
                 lines.push(format!("Kept {} (use --purge to delete devices and the private SDK).", p.display()));
             }
-            lines.push("Android Studio's SDK and devices were not touched. Remove the app itself with `brew uninstall --cask jidr` or by moving Jidr.app to the Trash.".into());
+            lines.push(if cfg!(target_os = "macos") {
+                "Android Studio's SDK and devices were not touched. Remove the app itself with `brew uninstall --cask jidr` or by moving Jidr.app to the Trash."
+            } else {
+                "Android Studio's SDK and devices were not touched. Remove the jidr binary itself by deleting the folder you unpacked it into and its link on your PATH."
+            }.into());
             lines.join("\n")
         });
         return Ok(true);

@@ -21,7 +21,7 @@ tasks:
   i18n            extract the app's strings and update its translation catalogs (--check: verify only)
   helper          build the rooted on-device helper for the guest (ADR-0003)
   e2e-mac         full arm64 end-to-end gate on Apple Silicon (release gate, D28)
-  release         build the macOS release artifacts (Phase 12a)";
+  release         build the release artifacts: the macOS DMG, or the Linux x86_64 tarball (#50)";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
