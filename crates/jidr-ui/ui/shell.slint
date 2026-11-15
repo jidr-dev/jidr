@@ -5,7 +5,8 @@ import { Theme } from "theme.slint";
 import { Icons } from "icons.slint";
 import { T, Role, Tone, Tones, Icon, IconButton, Button, ButtonKind, Kbd, Bar, SectionHeader, TrafficLights, Pill } from "components/base.slint";
 import { StatusText, StatusStyle, RootBadge } from "components/status.slint";
-import { DeviceVm, JobVm, TabVm, DevState, DevKind, RootKind, JobTone, ConnState, FormFactor, BudgetVm, BudgetLevel } from "types.slint";
+import { DeviceVm, JobVm, TabVm, DevState, DevKind, RootKind, JobTone, ConnState, FormFactor, BudgetVm, BudgetLevel, PhoneVm } from "types.slint";
+import { PhonesGroup } from "phones.slint";
 
 /// One title-bar tab (`.tab`).
 export component TabItem inherits Rectangle {
@@ -144,7 +145,7 @@ export component TitleBar inherits Rectangle {
         }
         @children
         IconButton {
-            icon: Icons.panel-left;
+            icon: Theme.rtl ? Icons.panel-right : Icons.panel-left;
             icon-size: Theme.icon-md;
             clicked => { root.toggle-sidebar(); }
         }
@@ -241,7 +242,7 @@ export component BudgetMeter inherits Rectangle {
         y: 10px;
         width: parent.width - 44px;
         height: 18px;
-        text: @tr("{} of ~{} devices fit", root.budget.running, root.budget.fit);
+        text: @tr("{} of ~{n} device fit" | "{} of ~{n} devices fit" % root.budget.fit, root.budget.running);
         role: Role.label;
         font-weight: 600;
     }
@@ -354,8 +355,12 @@ export component Sidebar inherits Rectangle {
     in property <bool> sdk-ready: true;
     in property <string> sdk-label: @tr("Not installed");
     in property <BudgetVm> budget;
+    in property <[PhoneVm]> phones;
+    in property <int> selected-phone: -1;
     callback select(int);
     callback open(int);
+    callback select-phone(int);
+    callback open-phone(int);
     callback new-device();
     callback open-palette();
     callback open-settings();
@@ -437,6 +442,12 @@ export component Sidebar inherits Rectangle {
             selected: i == root.selected;
             clicked => { root.select(i); }
             double-clicked => { root.open(i); }
+        }
+        PhonesGroup {
+            phones: root.phones;
+            selected: root.selected-phone;
+            select(i) => { root.select-phone(i); }
+            open(i) => { root.open-phone(i); }
         }
         if root.jobs.length > 0: SectionHeader {
             text: @tr("Jobs");

@@ -4,6 +4,7 @@
 use jidr_core::RootMode;
 use slint::{ComponentHandle, ModelRc, Rgba8Pixel, SharedPixelBuffer, VecModel};
 
+use crate::i18n::{self, Lang};
 use crate::{
     AppWindow, ConnState, DetectRow, JobTone, JobVm, PlanRow, RootChoice, SettingsWindow,
     SetupWindow, Theme, device_form, fixtures, model, offscreen, palette, settings,
@@ -36,16 +37,63 @@ pub struct Case {
     pub render: Render,
 }
 
-/// Applies a variant to a component's `Theme` global. Snapshots freeze
-/// motion (spinners, transitions) by turning Reduce Motion on.
+/// Applies a variant and the current language (`i18n::set` before the
+/// render) to a freshly created component. Snapshots freeze motion
+/// (spinners, transitions) by turning Reduce Motion on.
 pub fn apply<C: ComponentHandle>(c: &C, v: Variant)
 where
     for<'a> Theme<'a>: slint::Global<'a, C>,
 {
+    // Slint loads its bundled translations with the first component and
+    // picks the machine's locale; select the snapshot's language instead.
+    let lang = i18n::current();
+    i18n::set(lang);
+    i18n::theme(c);
     let theme = c.global::<Theme>();
     theme.set_dark(v != Variant::Light);
-    theme.set_rtl(v == Variant::Rtl);
+    theme.set_rtl(v == Variant::Rtl || lang.rtl());
     theme.set_reduce_motion(true);
+}
+
+/// The screens with goldens in every translation (issue #29), dark and
+/// light: the launcher, the create sheet, the player with its widget panel,
+/// root progress and success, and Settings.
+pub const LOCALE_SCREENS: [&str; 6] = [
+    "launcher-populated",
+    "create-google-apis",
+    "player-running",
+    "root-progress",
+    "root-success",
+    "settings-general",
+];
+/// More right-to-left checks in Arabic: English logcat lines inside the
+/// mirrored player, and the sensors panel's sliders.
+pub const ARABIC_SCREENS: [&str; 2] = ["player-logcat", "widgets-sensors"];
+pub const LOCALE_VARIANTS: [Variant; 2] = [Variant::Dark, Variant::Light];
+
+/// `(language, case)` for every locale golden, named `<case>.<lang>.<variant>`.
+pub fn locale_cases() -> Vec<(Lang, Case)> {
+    let all = cases();
+    Lang::ALL
+        .into_iter()
+        .filter(|l| *l != Lang::En)
+        .flat_map(|lang| {
+            all.iter()
+                .filter(move |c| {
+                    LOCALE_SCREENS.contains(&c.name)
+                        || (lang == Lang::Ar && ARABIC_SCREENS.contains(&c.name))
+                })
+                .map(move |c| {
+                    (
+                        lang,
+                        Case {
+                            name: c.name,
+                            render: c.render,
+                        },
+                    )
+                })
+        })
+        .collect()
 }
 
 fn model<T: Clone + 'static>(v: Vec<T>) -> ModelRc<T> {
@@ -271,6 +319,16 @@ pub(crate) fn device_tab(v: Variant, device: usize) -> Result<AppWindow, String>
     w.sms_text = "Your courier is 4 min away".into();
     w.clipboard = "ORDER-4821".into();
     app.set_widgets(w);
+    Ok(app)
+}
+
+/// The populated launcher with the fixture phones, phone `selected` picked.
+fn with_phones(v: Variant, selected: i32) -> Result<AppWindow, String> {
+    let app = populated(v)?;
+    let phones: Vec<_> = fixtures::phones().iter().map(model::phone_vm).collect();
+    app.set_phones(model(phones));
+    app.set_selected_phone(selected);
+    app.set_selected(-1);
     Ok(app)
 }
 
@@ -660,6 +718,24 @@ pub fn cases() -> Vec<Case> {
                 app.set_sheet_open(true);
                 shot(&app, 1440, 900)
             },
+        },
+        // USB phones (#92): the Phones group empty (launcher-populated
+        // shows it too), a ready phone, and one waiting for the RSA prompt.
+        Case {
+            name: "phones-empty",
+            render: |v| {
+                let app = populated(v)?;
+                app.set_phones(model(Vec::new()));
+                shot(&app, 1440, 900)
+            },
+        },
+        Case {
+            name: "phones-ready",
+            render: |v| shot(&with_phones(v, 0)?, 1440, 900),
+        },
+        Case {
+            name: "phones-unauthorized",
+            render: |v| shot(&with_phones(v, 1)?, 1440, 900),
         },
         Case {
             name: "launcher-reconnecting",
