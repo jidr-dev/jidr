@@ -26,9 +26,9 @@ import { SetupWindow } from "wizard.slint";
 import { SettingsWindow } from "settings.slint";
 import { RootUi, RootLayer, RootSheetState, RootStep, RootStepState, RootStepVm, RootLogLine } from "../src/root/root.slint";
 export { RootUi, RootSheetState, RootStep, RootStepState, RootStepVm, RootLogLine }
-import { DeviceVm, JobVm, TabVm, SnapshotVm, DevState, DevKind, RootKind, FormFactor, JobTone, ConnState, RootChoice, ImageRowVm, OptionVm, DeviceForm, DetectRow, PlanRow, UsageRow, PaletteKind, PaletteItem, LogLine, WidgetsVm, BudgetVm, BudgetLevel, ExhaustedRow, PhoneVm, PhoneLook } from "types.slint";
+import { DeviceVm, JobVm, TabVm, SnapshotVm, DevState, DevKind, RootKind, FormFactor, JobTone, ConnState, RootChoice, ImageRowVm, OptionVm, DeviceForm, DetectRow, PlanRow, UsageRow, PaletteKind, PaletteItem, LogLine, WidgetsVm, SyncVm, BudgetVm, BudgetLevel, ExhaustedRow, PhoneVm, PhoneLook } from "types.slint";
 
-export { Theme, Icons, DeviceVm, JobVm, TabVm, SnapshotVm, DevState, DevKind, RootKind, FormFactor, JobTone, ConnState, RootChoice, ImageRowVm, OptionVm, DeviceForm, DetectRow, PlanRow, UsageRow, PaletteKind, PaletteItem, LogLine, WidgetsVm, BudgetVm, BudgetLevel, ExhaustedRow, PhoneVm, PhoneLook, SetupWindow, SettingsWindow }
+export { Theme, Icons, DeviceVm, JobVm, TabVm, SnapshotVm, DevState, DevKind, RootKind, FormFactor, JobTone, ConnState, RootChoice, ImageRowVm, OptionVm, DeviceForm, DetectRow, PlanRow, UsageRow, PaletteKind, PaletteItem, LogLine, WidgetsVm, SyncVm, BudgetVm, BudgetLevel, ExhaustedRow, PhoneVm, PhoneLook, SetupWindow, SettingsWindow }
 
 export component AppWindow inherits Window {
     in-out property <[DeviceVm]> devices;

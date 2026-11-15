@@ -39,6 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      release: ${{ steps.filter.outputs.release }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -51,6 +52,11 @@ jobs:
               - '!docs/**'
               - '!site/**'
               - '!**/*.md'
+            release:
+              - 'xtask/src/release.rs'
+              - 'xtask/src/helper.rs'
+              - 'packaging/linux/**'
+              - '.github/workflows/release.yml'
 
   # macOS compile + lint gate for macOS-only code (VideoToolbox, Slint's
   # macOS backend, bundling). Hosted macOS can't boot the emulator and queues
@@ -69,6 +75,26 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - run: cargo clippy --workspace --all-targets -- -D warnings
+
+  # The check job already builds and tests `jidr` on Linux. This one runs the
+  # release packaging (`cargo xtask release` on Linux: release build, x86_64
+  # helper, tarball, scan) when that code changes, so a broken tarball shows
+  # up on the pull request rather than on release day (#50).
+  linux-tarball:
+    name: Linux x86_64 tarball
+    needs: changes
+    if: needs.changes.outputs.release == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust (from rust-toolchain.toml)
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: cargo xtask release --scan --out dist
+      - run: packaging/linux/smoke.sh dist
 
   emulator:
     # Emulator integration tests on Linux KVM with x86_64 images (D28).

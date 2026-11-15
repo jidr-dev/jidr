@@ -1,4 +1,5 @@
-//! `cargo xtask release`: the macOS release artifacts (Phases 12a and 12b).
+//! `cargo xtask release`: the macOS release artifacts (Phases 12a and 12b),
+//! or, on x86_64 Linux, the headless tarball (#50, see [`run_linux`]).
 //!
 //! Builds `jidr` and `jidr-gui` in release mode and the arm64 on-device
 //! helper (`cargo xtask helper`, ADR-0003), assembles `Jidr.app`, packs
@@ -67,8 +68,13 @@ pub fn run(args: &[String]) -> Result<()> {
         println!("{USAGE}");
         return Ok(());
     }
+    if cfg!(target_os = "linux") && cfg!(target_arch = "x86_64") {
+        return run_linux(&opts);
+    }
     if !cfg!(target_os = "macos") {
-        bail!("release builds the macOS app and DMG; run it on macOS (D15)");
+        bail!(
+            "release builds the macOS app and DMG on macOS, or the headless tarball on x86_64 Linux (D15, D49)"
+        );
     }
     let root = workspace_root();
     let version = workspace_version()?;
@@ -185,6 +191,108 @@ pub fn run(args: &[String]) -> Result<()> {
     }
     println!("xtask: release ok: {}", dmg.display());
     Ok(())
+}
+
+/// The Rust target the Linux tarball is built for and named after.
+const LINUX_TRIPLE: &str = "x86_64-unknown-linux-gnu";
+
+/// The on-device helper the Linux tarball ships: x86_64 hosts run x86_64
+/// guests (ADR-0003).
+const LINUX_HELPER: &str = "x86_64";
+
+/// The headless Linux release (#50, D49): `jidr` (CLI, daemon and MCP) with
+/// the x86_64 on-device helper and the licences, packed as
+/// `jidr-<version>-x86_64-unknown-linux-gnu.tar.gz` with a `.sha256` next to
+/// it. No GUI and no MCP bundle. `--dry-run` changes nothing here: nothing is
+/// signed on Linux.
+fn run_linux(opts: &Options) -> Result<()> {
+    let root = workspace_root();
+    let version = workspace_version()?;
+    let target = target_dir(&root);
+    let out = opts
+        .out
+        .clone()
+        .map(|o| if o.is_absolute() { o } else { root.join(o) })
+        .unwrap_or_else(|| target.join("release-artifacts"));
+    println!("xtask: release {version} (Linux) → {}", out.display());
+
+    crate::run(&cargo(), &["build", "--release", "--locked", "-p", "jidr"])?;
+    let helper = crate::helper::build(&[LINUX_HELPER])?
+        .into_iter()
+        .next()
+        .map(|(_, path)| path)
+        .context("the helper build returned nothing")?;
+
+    if out.exists() {
+        std::fs::remove_dir_all(&out).with_context(|| format!("clearing {}", out.display()))?;
+    }
+    let name = format!("jidr-{version}-{LINUX_TRIPLE}");
+    let staging = out.join("staging");
+    let dir = staging.join(&name);
+    assemble_linux(&root, &target.join("release/jidr"), &helper, &dir)?;
+    let findings = if opts.scan {
+        scan_linux(&dir)?
+    } else {
+        Vec::new()
+    };
+
+    let tarball = format!("{name}.tar.gz");
+    tool_output(
+        "tar",
+        &[
+            "--owner=0",
+            "--group=0",
+            "--numeric-owner",
+            "-czf",
+            &tarball,
+            "-C",
+            &path_str(&staging)?,
+            &name,
+        ],
+        &out,
+    )?;
+    std::fs::remove_dir_all(&staging).ok();
+    let sum = tool_output("sha256sum", &[&tarball], &out)?;
+    std::fs::write(out.join(format!("{tarball}.sha256")), &sum)?;
+    std::fs::write(out.join("VERSION"), format!("{version}\n"))?;
+    print!("{sum}");
+
+    if !findings.is_empty() {
+        for f in &findings {
+            println!("xtask: scan: {}: {}", f.path.display(), f.reason);
+        }
+        bail!(
+            "{} forbidden file(s) in the Linux tarball (Google SDK, system images or Magisk)",
+            findings.len()
+        );
+    }
+    if opts.scan {
+        println!("xtask: scan ok: no Google SDK binaries, system images or Magisk");
+    }
+    println!("xtask: release ok: {}", out.join(&tarball).display());
+    Ok(())
+}
+
+/// The tarball's folder: `jidr`, `helper/x86_64/jidr-helper` next to it
+/// (where the daemon looks, `jidr_helper::host::search_dirs`) and the
+/// licences.
+fn assemble_linux(root: &Path, jidr: &Path, helper: &Path, dir: &Path) -> Result<()> {
+    copy(jidr, &dir.join("jidr"))?;
+    copy(helper, &dir.join(helper_path(LINUX_HELPER)))?;
+    for name in ["LICENSE-APACHE", "NOTICE"] {
+        copy(&root.join(name), &dir.join(name))?;
+    }
+    Ok(())
+}
+
+/// [`scan_tree`] for the Linux tarball, where `jidr` itself is an ELF: it's
+/// ours, so only that exact file is let through.
+fn scan_linux(dir: &Path) -> Result<Vec<Finding>> {
+    let own = dir.join("jidr");
+    Ok(scan_tree(dir)?
+        .into_iter()
+        .filter(|f| f.path != own)
+        .collect())
 }
 
 fn path_str(p: &Path) -> Result<String> {
@@ -719,6 +827,33 @@ mod tests {
             .collect();
         // Sorted by path; the /Applications symlink is not followed or flagged.
         assert_eq!(names, ["jidr-helper", "payload.bin", "adb"]);
+    }
+
+    /// The Linux tarball (#50): `jidr` is the one extra ELF let through,
+    /// and only at the top of the folder.
+    #[test]
+    fn linux_scan_allows_only_our_binaries() {
+        let tmp = std::env::temp_dir().join(format!("jidr-scan-linux-{}", std::process::id()));
+        let dir = tmp.join("jidr-0.1.0-x86_64-unknown-linux-gnu");
+        std::fs::create_dir_all(dir.join("helper/x86_64")).unwrap();
+        std::fs::create_dir_all(dir.join("bin")).unwrap();
+        std::fs::write(dir.join("jidr"), b"\x7fELF\x02").unwrap();
+        std::fs::write(dir.join("helper/x86_64/jidr-helper"), b"\x7fELF\x02").unwrap();
+        std::fs::write(dir.join("NOTICE"), b"notice").unwrap();
+        assert!(scan_linux(&dir).unwrap().is_empty());
+
+        std::fs::write(dir.join("bin/jidr"), b"\x7fELF\x02").unwrap();
+        std::fs::write(dir.join("emulator"), b"x").unwrap();
+        let found = scan_linux(&dir).unwrap();
+        std::fs::remove_dir_all(&tmp).unwrap();
+        let paths: Vec<_> = found
+            .iter()
+            .map(|f| f.path.strip_prefix(&dir).unwrap().to_path_buf())
+            .collect();
+        assert_eq!(
+            paths,
+            [PathBuf::from("bin/jidr"), PathBuf::from("emulator")]
+        );
     }
 
     #[test]

@@ -200,6 +200,22 @@ export struct LogLine {
     msg: string,
 }
 
+/// A folder sync of the active device (#27), labels computed in Rust.
+export struct SyncVm {
+    id: string,
+    /// The folder on this Mac, by name: "dist".
+    folder: string,
+    /// Where it goes on the device: "/sdcard/Download/dist".
+    remote: string,
+    /// "Copying 12 of 300 files…", "Up to date · 300 files copied", or the
+    /// last error.
+    status: string,
+    /// Copying right now.
+    busy: bool,
+    /// `status` is an error.
+    failed: bool,
+}
+
 /// What the widget panels show for the active device (loaded from the
 /// `*.get` commands, updated after each `*.set`).
 export struct WidgetsVm {
@@ -252,6 +268,8 @@ export struct WidgetsVm {
     identity-busy: bool,
     /// A game controller on this Mac drives the device (#23).
     gamepad: bool,
+    /// Synced folders (#27), from `file.sync.list`.
+    syncs: [SyncVm],
 }
 
 /// How a physical phone's state looks (#92): ready, on its way (connecting),

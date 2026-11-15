@@ -72,6 +72,20 @@ impl Out {
         }
     }
 
+    /// A progress line without a job (`\r`-rewritten on a terminal).
+    pub fn progress_text(&self, text: &str) {
+        if self.json || self.quiet {
+            return;
+        }
+        let mut stderr = std::io::stderr().lock();
+        if std::io::stderr().is_terminal() {
+            let _ = write!(stderr, "\r\x1b[2K{text}");
+        } else {
+            let _ = writeln!(stderr, "{text}");
+        }
+        let _ = stderr.flush();
+    }
+
     /// Informational line on stderr.
     pub fn info(&self, text: &str) {
         if !self.json && !self.quiet {
@@ -496,6 +510,66 @@ pub fn audio(v: &Value) -> String {
         v["channels"].as_u64().unwrap_or(0),
         v["format"].as_str().unwrap_or("?"),
     )
+}
+
+/// A `file.sync.start` or `file.sync.stop` result.
+pub fn sync(v: &Value) -> String {
+    let id = s(v, "id");
+    let dest = format!("{}:{}", s(v, "name"), s(v, "remote"));
+    let error = match v["last_error"].as_str() {
+        Some(e) => format!("\nLast error: {e}"),
+        None => String::new(),
+    };
+    match v["state"].as_str() {
+        Some("mirroring") => format!(
+            "Syncing {} to {dest} ({} files); the first copy is running. Stop it with `jidr sync stop {}`.{error}",
+            s(v, "local"),
+            s(v, "files"),
+            short_id(&id)
+        ),
+        _ => format!(
+            "Syncing {} to {dest}: {} files copied. Stop it with `jidr sync stop {}`.{error}",
+            s(v, "local"),
+            s(v, "pushed"),
+            short_id(&id)
+        ),
+    }
+}
+
+/// `file.sync.list`.
+pub fn syncs(v: &Value) -> String {
+    let rows: Vec<Vec<String>> = v
+        .as_array()
+        .map(|a| a.as_slice())
+        .unwrap_or_default()
+        .iter()
+        .map(|x| {
+            vec![
+                short_id(&s(x, "id")).to_string(),
+                s(x, "name"),
+                s(x, "local"),
+                s(x, "remote"),
+                s(x, "state"),
+                s(x, "pushed"),
+                s(x, "removed"),
+                s(x, "last_error"),
+            ]
+        })
+        .collect();
+    if rows.is_empty() {
+        return "No folders are syncing.".into();
+    }
+    table(
+        &[
+            "ID", "DEVICE", "LOCAL", "REMOTE", "STATE", "PUSHED", "REMOVED", "ERROR",
+        ],
+        rows,
+    )
+}
+
+/// The first 8 characters of an id (enough for `jidr sync stop`).
+fn short_id(id: &str) -> &str {
+    id.get(..8).unwrap_or(id)
 }
 
 /// A `network.shaping.*` result: one line when every interface agrees, a

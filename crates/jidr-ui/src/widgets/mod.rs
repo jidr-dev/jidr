@@ -13,6 +13,7 @@ use crate::i18n::tr;
 
 pub mod gps;
 pub mod identity;
+pub mod sync;
 
 pub const PROFILES: [&str; 7] = ["full", "lte", "hsdpa", "umts", "edge", "gprs", "gsm"];
 pub const SCALES: [f32; 7] = [0.0, 0.5, 1.0, 1.5, 2.0, 5.0, 10.0];
@@ -291,6 +292,17 @@ pub fn load(ctx: &Rc<Ctx>) {
     ] {
         call_and_merge(ctx, id, m, json!({}));
     }
+    sync::load(ctx, id);
+}
+
+/// A daemon event the panels follow (UI thread): `file.sync.*` for the
+/// active device's synced folders.
+pub fn on_event(ctx: &Rc<Ctx>, ev: &jidr_core::rpc::Event) {
+    if let Some(id) = active(ctx)
+        && ev.topic.starts_with("file.sync.")
+    {
+        sync::on_event(ctx, id, &ev.topic, &ev.data);
+    }
 }
 
 pub fn wire(ctx: &Rc<Ctx>) {
@@ -301,6 +313,7 @@ pub fn wire(ctx: &Rc<Ctx>) {
         if gps_action(&c, id, &action, &value)
             || identity::action(&c, id, &action, &value)
             || gamepad_action(&c, id, &action, &value)
+            || sync::action(&c, id, &action, &value)
         {
             return;
         }
