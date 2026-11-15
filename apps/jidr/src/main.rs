@@ -936,6 +936,36 @@ async fn dispatch(c: &Client, cmd: Cmd, out: Out) -> JidrResult<()> {
             };
             out.ok(&v, output::identity);
         }
+        Cmd::Record {
+            device,
+            output,
+            seconds,
+            fps,
+            no_audio,
+        } => {
+            let mut p = json!({ "device": device, "audio": !no_audio });
+            if let Some(o) = output {
+                p["path"] = json!(std::path::absolute(&o).unwrap_or(o));
+            }
+            if let Some(s) = seconds {
+                p["max_seconds"] = json!(s);
+            }
+            if let Some(f) = fps {
+                p["fps"] = json!(f);
+            }
+            let v = c.call("media.record", p).await?;
+            if !out.json && !out.quiet {
+                eprintln!("Recording {device}; press Ctrl-C to stop and save.");
+            }
+            let v = tokio::select! {
+                r = follow(c, out, v.clone(), None) => r?,
+                _ = tokio::signal::ctrl_c() => {
+                    c.call("media.record_stop", json!({ "device": device })).await?;
+                    follow(c, out, v, None).await?
+                }
+            };
+            out.ok(&v, output::recording);
+        }
         Cmd::Audio {
             cmd:
                 AudioCmd::Inject {

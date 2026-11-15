@@ -745,7 +745,7 @@ Dump the device log
 
 #### `media.record`
 
-Record the screen to MP4 (H.264) until media.record_stop or max_seconds · long-running (job)
+Record the screen and the device's audio to MP4 (H.264, AAC) until media.record_stop or max_seconds · long-running (job)
 
 | Param | Type | Required | Description |
 |---|---|---|---|
@@ -753,6 +753,7 @@ Record the screen to MP4 (H.264) until media.record_stop or max_seconds · long-
 | `path` | string |  | Where to save the MP4 (default `~/Movies/Jidr/<device> <time>.mp4`). |
 | `max_seconds` | integer |  | Stop on its own after this many seconds (default 3600). |
 | `fps` | integer |  | Frames per second (default 30). |
+| `audio` | boolean |  | Also record the device's audio (AAC; default true). If the emulator's audio stream fails, the recording goes on without it. |
 
 #### `media.record_stop`
 
@@ -1310,3 +1311,4 @@ Save a snapshot of a running device · long-running (job) · locks the device
 | 0.1 (additive) | #17 (D44): `network.shaping.set` gains optional `dns` (`normal` \| `slow` \| `fail`) and `dns_delay_ms` (1–30000, default 3000; alone it means `slow`), and `loss_pct` becomes optional: a field left out keeps the device's current value, and giving none is `usage`. Both commands' results gain `dns` and `dns_delay_ms` (null when interfaces differ, or when DNS isn't `slow`), and each interface gains `dns` and `dns_delay_ms`. `Device` gains `network_shaping {loss_pct, dns, dns_delay_ms?}` (absent when off): what `set` stored, re-applied by the widgets boot hook after every boot (skipped when the kernel already has it; reported as `device.hook_failed` when the root mode is `none`). Clearing (`0` and `normal`) forgets it, and on a `none` device works without the helper, returning `interfaces: []`. The helper's protocol becomes 2 (internal). With no interface that has a default route (Wi-Fi and mobile data off, or not up yet), both commands now fail with `usage` instead of `unexpected` (`helper_error: "usage"`); and they also cover interfaces that still have Jidr's qdisc after losing their route, so clearing leaves none behind. No existing field changed meaning. |
 | 0.1 (additive) | #27: synced folders, from the new `sync` provider in the daemon. `file.sync.start {device, local, remote?, ignore?, no_default_ignore?, max_files?}` → the sync `{id, device, name, local, remote, state, files, bytes, ignore, pushed, removed, started_at, last_synced_at?, last_error?}` keeps a host folder copied to a running device (one way: a first copy, then each change, deletions included); `file.sync.stop {id}` (an id or a unique prefix) → the sync as it was; `file.sync.list {device?}` → `[sync]`. A folder past `max_files` (10000) is `usage` with `details.max_files`. New events `file.sync.started`, `file.sync.progress`, `file.sync.synced`, `file.sync.error`, `file.sync.stopped`. Syncs end when their device stops and aren't resumed. No existing command changed. |
 | 0.1 (additive) | #23: game controllers, widgets provider. `input.gamepad.list` → `{controllers: [{id, name, vendor?, product?}]}` (the controllers on this computer; macOS only for now, `usage` elsewhere). `input.gamepad.connect {device, controller?}` (long-running) replays the controller into the device as a virtual USB Xbox 360 controller, made with AOSP's `hid` command over `adb shell` (no root), until `input.gamepad.disconnect {device}` → `{disconnected}`, a cancel, the controller going away or the device stopping → `{controller, reports, ended: disconnected \| unplugged \| device_stopped}`; one per device (`busy`), `not_found` with no controller, `usage` when the guest has no `hid` command. `input.gamepad.get {device}` → `{connected}`. No existing command changed. |
+| 0.1 (additive) | #28: `media.record` gains optional `audio` (default `true`): the device's audio from the emulator's gRPC `streamAudio` (48 kHz 16-bit stereo) is encoded to AAC in the same MP4, on the video's clock; silence fills the times the device plays nothing. Its result gains `audio` (bool): whether the file has an audio track. It's `false` when `audio` was `false`, when the device starts with `-no-audio`, or when the audio stream couldn't be opened, in which case the recording is video-only and the daemon logs a warning; an audio failure never fails the recording. No other field changed. |

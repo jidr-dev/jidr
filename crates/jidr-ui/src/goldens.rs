@@ -233,7 +233,7 @@ fn setup(v: Variant, step: i32) -> Result<SharedPixelBuffer<Rgba8Pixel>, String>
 }
 
 fn settings_tab(v: Variant, tab: i32) -> Result<SharedPixelBuffer<Rgba8Pixel>, String> {
-    shot(&settings_window(v, tab)?, 820, 640)
+    shot(&settings_window(v, tab)?, 820, 700)
 }
 
 fn settings_window(v: Variant, tab: i32) -> Result<SettingsWindow, String> {
@@ -662,7 +662,7 @@ pub fn cases() -> Vec<Case> {
                 w.set_update_status(status.into());
                 w.set_update_label(label.into());
                 w.set_update_url(url.into());
-                shot(&w, 820, 640)
+                shot(&w, 820, 700)
             },
         },
         Case {

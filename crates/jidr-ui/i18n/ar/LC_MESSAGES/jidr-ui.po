@@ -2016,6 +2016,18 @@ msgstr "يستغرق التشغيل ثوانيَ بدلًا من إقلاع كا
 msgid "Hibernates running devices left idle that long, freeing their RAM. Devices can override it."
 msgstr "يضع الأجهزة العاملة التي تبقى خاملة هذه المدة في إسبات، فيحرّر ذاكرتها. ويمكن تغيير ذلك لكل جهاز."
 
+#: ui/settings.slint
+msgid "Recording"
+msgstr "تسجيل الشاشة"
+
+#: ui/settings.slint
+msgid "Include audio"
+msgstr "تضمين الصوت"
+
+#: ui/settings.slint
+msgid "Screen recordings also capture what the device plays."
+msgstr "تلتقط تسجيلات الشاشة أيضًا ما يشغّله الجهاز من صوت."
+
 #: ui/settings.slint ui/shell.slint
 msgid "Android SDK"
 msgstr "Android SDK"

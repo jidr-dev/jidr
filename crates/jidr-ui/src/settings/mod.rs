@@ -36,6 +36,9 @@ pub struct Prefs {
     /// The app's language (issue #29): empty follows the Mac's preferred
     /// languages, otherwise an `i18n::Lang` code (`ar`, `es`, `zh-Hans`, …).
     pub language: String,
+    /// Screen recordings include the device's audio (`media.record`'s
+    /// `audio`, #28).
+    pub record_audio: bool,
 }
 
 impl Default for Prefs {
@@ -47,6 +50,7 @@ impl Default for Prefs {
             quick_boot: true,
             auto_hibernate_minutes: 0,
             language: String::new(),
+            record_audio: true,
         }
     }
 }
@@ -322,6 +326,7 @@ pub fn open(ctx: &std::rc::Rc<crate::app::Ctx>, tab: i32) {
     win.set_language_choice(language_index(&prefs.language));
     win.set_quick_boot(prefs.quick_boot);
     set_hibernate(&win, prefs.auto_hibernate_minutes);
+    win.set_record_audio(prefs.record_audio);
     let devices = ctx.state.borrow().data.devices.clone();
     win.set_device_usage(models(device_usage(&devices, &[])));
     let cache = dir_size(&ctx.paths.cache);
@@ -428,6 +433,11 @@ pub fn open(ctx: &std::rc::Rc<crate::app::Ctx>, tab: i32) {
         c.prefs.borrow_mut().quick_boot = v;
         let _ = c.prefs.borrow().save(&c.paths.data);
         set_daemon_setting(&c, json!({ "quick_boot": v }));
+    });
+    let c = ctx.clone();
+    win.on_record_audio_changed(move |v| {
+        c.prefs.borrow_mut().record_audio = v;
+        let _ = c.prefs.borrow().save(&c.paths.data);
     });
     let c = ctx.clone();
     let w = win.as_weak();
@@ -587,6 +597,7 @@ mod tests {
             quick_boot: false,
             auto_hibernate_minutes: 30,
             language: "ar".into(),
+            record_audio: false,
         };
         p.save(tmp.path()).unwrap();
         let back = Prefs::load(tmp.path());

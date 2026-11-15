@@ -183,6 +183,7 @@ export component SettingsWindow inherits Window {
     in-out property <bool> quick-boot: true;
     in property <[OptionVm]> hibernate-options;
     in-out property <int> hibernate-choice: 0;
+    in-out property <bool> record-audio: true;
     // Storage
     in property <string> sdk-path;
     in property <string> sdk-state: @tr("Ready");
@@ -209,6 +210,7 @@ export component SettingsWindow inherits Window {
     callback language-changed(int);
     callback quick-boot-changed(bool);
     callback hibernate-changed(int);
+    callback record-audio-changed(bool);
     callback change-sdk();
     callback show-sdk();
     callback clear-cache();
@@ -222,7 +224,7 @@ export component SettingsWindow inherits Window {
 
     title: @tr("Settings");
     width: 820px;
-    height: 640px;
+    height: 700px;
     background: Theme.surface-base;
     default-font-family: Theme.font-ui;
     default-font-size: Theme.type-body-size;
@@ -390,6 +392,30 @@ export component SettingsWindow inherits Window {
                 y: 36px;
                 height: 15px;
                 text: @tr("Hibernates running devices left idle that long, freeing their RAM. Devices can override it.");
+            }
+        }
+        Row {
+            label: @tr("Recording");
+            row-height: 44px;
+            Toggle {
+                x: Theme.rtl ? parent.cw - self.width : 0px;
+                y: 6px;
+                checked: root.record-audio;
+                toggled(v) => { root.record-audio-changed(v); }
+            }
+            T {
+                x: Theme.rtl ? 0px : 44px;
+                y: 2px;
+                height: 24px;
+                width: parent.cw - 44px;
+                text: @tr("Include audio");
+            }
+            Hint {
+                x: Theme.rtl ? 0px : 44px;
+                y: 26px;
+                height: 15px;
+                width: parent.cw - 44px;
+                text: @tr("Screen recordings also capture what the device plays.");
             }
         }
     }

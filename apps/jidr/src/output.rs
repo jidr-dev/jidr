@@ -630,9 +630,27 @@ pub fn pretty(v: &Value) -> String {
     serde_json::to_string_pretty(v).unwrap_or_default()
 }
 
+/// `media.record`'s result.
+pub fn recording(v: &Value) -> String {
+    let audio = if v["audio"] == true { "" } else { ", no audio" };
+    format!(
+        "Saved {} ({:.0} s{audio}).",
+        v["path"].as_str().unwrap_or("?"),
+        v["duration_s"].as_f64().unwrap_or(0.0)
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn recording_says_when_audio_is_missing() {
+        let v = json!({ "path": "/m/a.mp4", "duration_s": 4.9, "audio": true });
+        assert_eq!(recording(&v), "Saved /m/a.mp4 (5 s).");
+        let v = json!({ "path": "/m/a.mp4", "duration_s": 4.9, "audio": false });
+        assert_eq!(recording(&v), "Saved /m/a.mp4 (5 s, no audio).");
+    }
 
     #[test]
     fn tables_align() {

@@ -147,6 +147,23 @@ pub enum Cmd {
         #[arg(long)]
         android_id: Option<String>,
     },
+    /// Record a running device's screen and audio to MP4 (H.264 + AAC)
+    /// until Ctrl-C (default ~/Movies/Jidr).
+    Record {
+        device: String,
+        /// Where to save it.
+        #[arg(long, short)]
+        output: Option<PathBuf>,
+        /// Stop after this many seconds (default 3600).
+        #[arg(long)]
+        seconds: Option<u64>,
+        /// Frames per second (1–60, default 30).
+        #[arg(long)]
+        fps: Option<u32>,
+        /// Video only: leave out the device's audio.
+        #[arg(long)]
+        no_audio: bool,
+    },
     /// Play an audio file as a device's microphone (WAV, or raw 16-bit PCM).
     Audio {
         #[command(subcommand)]
@@ -852,6 +869,22 @@ mod tests {
         assert!(
             Cli::try_parse_from(["jidr", "root", "writable-system", "Phone", "maybe"]).is_err()
         );
+    }
+
+    /// #28: `--no-audio` turns the device's audio off; it's on by default.
+    #[test]
+    fn record_flags() {
+        let cli =
+            Cli::try_parse_from(["jidr", "record", "Phone", "--no-audio", "--fps", "60"]).unwrap();
+        let Cmd::Record { no_audio, fps, .. } = cli.cmd else {
+            panic!("not record");
+        };
+        assert_eq!((no_audio, fps), (true, Some(60)));
+        let cli = Cli::try_parse_from(["jidr", "record", "Phone"]).unwrap();
+        let Cmd::Record { no_audio, .. } = cli.cmd else {
+            panic!("not record");
+        };
+        assert!(!no_audio);
     }
 
     #[test]
