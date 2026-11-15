@@ -316,7 +316,7 @@ async fn a_quick_boot_that_kept_the_shaping_is_left_alone() {
     assert!(
         calls
             .iter()
-            .all(|c| c.contains(" show ") || c.contains("/ip ")),
+            .all(|c| c.contains(" qdisc show") || c.contains("/ip ")),
         "only reads: {calls:?}"
     );
     assert_eq!(s.guest.starts(), 1);

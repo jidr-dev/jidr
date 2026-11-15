@@ -242,6 +242,36 @@ pub fn applied(i: &InterfaceShaping, want: &ShapingSet) -> bool {
         && (want.dns != DnsMode::Slow || delay_matches(i.dns_delay_ms, want.dns_delay_ms))
 }
 
+/// The start of the error when no interface has a default route: Wi-Fi and
+/// mobile data are off, or not up yet after a boot. A `usage` error, since
+/// the user can fix it; the daemon's boot hook waits for it instead.
+pub const NO_ROUTE: &str = "no interface has a default route";
+
+/// The interfaces whose root qdisc is the helper's, from `tc qdisc show`
+/// (`qdisc netem 8001: dev wlan0 root refcnt 2 …`).
+pub fn parse_ours(all: &str) -> Vec<String> {
+    let mut names: Vec<String> = all
+        .lines()
+        .filter_map(|l| {
+            let w: Vec<&str> = l.split_whitespace().collect();
+            let ours = w.first() == Some(&"qdisc")
+                && w.contains(&"root")
+                && match (w.get(1), w.get(2)) {
+                    (Some(&"netem"), _) => true,
+                    (Some(&"prio"), Some(h)) => *h == PRIO,
+                    _ => false,
+                };
+            ours.then(|| after(&w, "dev").map(str::to_owned)).flatten()
+        })
+        .collect();
+    names.sort();
+    names.dedup();
+    names
+}
+
+/// The interfaces to shape or read: those with a default route, plus any
+/// that still has the helper's qdisc after losing its route (Wi-Fi dropped
+/// for a moment), so clearing never leaves one behind.
 fn interfaces(r: &dyn Run, given: Option<&[String]>) -> Result<Vec<String>, Error> {
     if let Some(given) = given {
         return given
@@ -253,11 +283,19 @@ fn interfaces(r: &dyn Run, given: Option<&[String]>) -> Result<Vec<String>, Erro
     if out.status != 0 {
         return Err(Error::failed(format!("ip route: {}", out.stderr.trim())));
     }
-    let names = parse_default_routes(&out.stdout);
+    let mut names = parse_default_routes(&out.stdout);
+    if let Ok(all) = run(r, TC, &["qdisc", "show"])
+        && all.status == 0
+    {
+        names.extend(parse_ours(&all.stdout));
+        names.sort();
+        names.dedup();
+    }
     if names.is_empty() {
-        return Err(Error::failed(
-            "no interface has a default route (is Wi-Fi or mobile data on?)",
-        ));
+        return Err(Error::usage(format!(
+            "{NO_ROUTE}: Wi-Fi and mobile data are off, or not up yet after a boot; \
+             turn one on (or wait a few seconds) and try again"
+        )));
     }
     Ok(names)
 }
@@ -567,6 +605,41 @@ qdisc netem 1d2: parent 1d:2 limit 1000 loss 10%
     }
 
     #[test]
+    fn an_interface_that_lost_its_route_is_still_cleared() {
+        let g = Guest::new(ROUTES);
+        set(&g, &dns(DnsMode::Fail, 0, 5.0)).unwrap();
+        // Wi-Fi drops: only radio0 has a route now.
+        g.0.borrow_mut().routes = "default via 10.0.2.2 dev radio0 table 1022\n".into();
+        let got = get(&g, &ShapingGet::default()).unwrap();
+        assert_eq!(got.interfaces.len(), 2, "wlan0 is still shown: {got:?}");
+        let s = set(&g, &loss(0.0)).unwrap();
+        assert!(
+            s.interfaces
+                .iter()
+                .all(|i| i.dns == DnsMode::Normal && i.loss_pct == 0.0)
+        );
+        assert_eq!(g.0.borrow().qdiscs["wlan0"], "qdisc mq 0: root");
+        // With nothing of ours left and no route, there is nothing to shape.
+        g.0.borrow_mut().routes = String::new();
+        assert!(
+            get(&g, &ShapingGet::default())
+                .unwrap_err()
+                .message
+                .starts_with(NO_ROUTE)
+        );
+        assert_eq!(
+            parse_ours(
+                "qdisc mq 0: dev wlan0 root\n\
+                 qdisc netem 8001: dev radio0 root refcnt 2 limit 1000 loss 5%\n\
+                 qdisc prio 1d: dev eth0 root refcnt 2 bands 2\n\
+                 qdisc netem 1d1: dev eth0 parent 1d:1 limit 1000 loss 100%\n\
+                 qdisc prio 1: dev eth1 root refcnt 2 bands 3"
+            ),
+            ["eth0", "radio0"]
+        );
+    }
+
+    #[test]
     fn slow_dns_delays_ports_53_and_853_only() {
         let g = Guest::new(ROUTES);
         let s = set(&g, &dns(DnsMode::Slow, 3000, 0.0)).unwrap();
@@ -660,10 +733,10 @@ qdisc netem 1d2: parent 1d:2 limit 1000 loss 10%
                 assert_eq!(g.0.borrow().qdiscs["wlan0"], "qdisc mq 0: root");
             }
         }
+        // No network yet: a usage error that says so.
         let none = Guest::new("10.0.2.0/24 dev wlan0");
-        assert_eq!(
-            get(&none, &ShapingGet::default()).unwrap_err().code,
-            ErrorCode::Failed
-        );
+        let e = get(&none, &ShapingGet::default()).unwrap_err();
+        assert_eq!(e.code, ErrorCode::Usage);
+        assert!(e.message.starts_with(NO_ROUTE), "{e}");
     }
 }

@@ -328,7 +328,15 @@ snapshot brings back the kernel's shaping from when it was taken, until the
 next cold boot re-applies the stored one. Setting the loss to `0` and DNS to
 `normal` clears the kernel and forgets the stored value. An interface that
 gets its route later (mobile data turned on afterwards) is shaped by the next
-`jidr network …` command or boot.
+`jidr network …` command or boot. One that loses its route while shaped (Wi-Fi
+dropping for a moment) is still shown and still cleared.
+
+With no network at all (Wi-Fi and mobile data both off, or not up yet right
+after a boot), `jidr network loss` and `jidr network dns` don't wait: they fail
+with `usage` (exit 2), "no interface has a default route: Wi-Fi and mobile
+data are off, or not up yet", and change nothing. Turn one on, or wait a few
+seconds, and run it again. Only the boot hook waits (up to 60 s), since it
+runs while Wi-Fi is still coming up.
 
 If a device's root mode becomes `none`, Jidr keeps the stored setting but
 skips it at boot with a warning (the `device.hook_failed` event, in the

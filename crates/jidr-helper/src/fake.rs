@@ -127,6 +127,22 @@ impl Kernel {
             (TC, ["qdisc", "show", "dev", dev]) => {
                 ok(self.qdiscs.get(*dev).cloned().unwrap_or_default())
             }
+            (TC, ["qdisc", "show"]) => {
+                let mut devs: Vec<&String> = self.qdiscs.keys().collect();
+                devs.sort();
+                let mut out = String::new();
+                for dev in devs {
+                    for line in self.qdiscs[dev].lines() {
+                        // `qdisc <kind> <handle> dev <dev> …`
+                        let mut w: Vec<&str> = line.split_whitespace().collect();
+                        w.insert(3.min(w.len()), dev);
+                        w.insert(3.min(w.len()), "dev");
+                        out.push_str(&w.join(" "));
+                        out.push('\n');
+                    }
+                }
+                ok(out)
+            }
             (TC, ["qdisc", "replace", "dev", dev, "root", "netem", rest @ ..]) => {
                 if !self.netem {
                     return self.no_netem();
