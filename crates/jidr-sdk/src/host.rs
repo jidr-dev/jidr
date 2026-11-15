@@ -43,13 +43,34 @@ pub fn hypervisor_available() -> bool {
             .map(|o| String::from_utf8_lossy(&o.stdout).trim() == "1")
             .unwrap_or(false)
     } else if cfg!(target_os = "linux") {
-        std::fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open("/dev/kvm")
-            .is_ok()
+        open_kvm().is_ok()
     } else {
         false
+    }
+}
+
+fn open_kvm() -> std::io::Result<std::fs::File> {
+    std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open("/dev/kvm")
+}
+
+/// On Linux, why the emulator can't use KVM and how to fix it; `None` when
+/// `/dev/kvm` opens, and always `None` on other hosts.
+pub fn kvm_problem() -> Option<String> {
+    if !cfg!(target_os = "linux") {
+        return None;
+    }
+    open_kvm().err().map(|e| kvm_advice(e.kind()))
+}
+
+/// What to tell the user when `/dev/kvm` fails to open with `kind`.
+pub fn kvm_advice(kind: std::io::ErrorKind) -> String {
+    match kind {
+        std::io::ErrorKind::NotFound => "/dev/kvm doesn't exist: turn on virtualization (Intel VT-x or AMD-V) in the BIOS/UEFI settings, then load the kvm_intel or kvm_amd module (`sudo modprobe kvm_intel`). In a VM or cloud instance, enable nested virtualization".into(),
+        std::io::ErrorKind::PermissionDenied => "this user can't open /dev/kvm: add it to the kvm group (`sudo usermod -aG kvm $USER`), then log out and back in".into(),
+        other => format!("/dev/kvm can't be opened ({other}): check that KVM works with `emulator -accel-check`"),
     }
 }
 
@@ -364,6 +385,17 @@ Pages purgeable:                                   8.
         assert_eq!((host_abi(), host_arch()), ("arm64-v8a", "aarch64"));
         #[cfg(target_arch = "x86_64")]
         assert_eq!((host_abi(), host_arch()), ("x86_64", "x64"));
+    }
+
+    #[test]
+    fn kvm_advice_names_the_fix() {
+        use std::io::ErrorKind;
+        assert!(kvm_advice(ErrorKind::NotFound).contains("BIOS"));
+        assert!(kvm_advice(ErrorKind::PermissionDenied).contains("usermod -aG kvm"));
+        assert!(kvm_advice(ErrorKind::Other).contains("-accel-check"));
+        if !cfg!(target_os = "linux") {
+            assert_eq!(kvm_problem(), None);
+        }
     }
 
     #[test]

@@ -30,6 +30,7 @@ const t = strings(Astro.currentLocale);
       <span class="sum" lang="en" dir="ltr"><span>{t.download.sha}</span><code class="sha">{release.sha256}</code></span>
       {release.homebrew && <span class="sum"><bdi>{t.hero.brew}</bdi></span>}
       {release.homebrew && <span class="sum"><bdi>{t.hero.upgrade}</bdi></span>}
+      <a class="sum" href={links.doc("docs/cli.md#linux-headless")}>{t.download.linux}</a>
       <a class="sum" href={links.releases}>{t.download.all}</a>
     </div>
   </div>

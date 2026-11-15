@@ -40,6 +40,10 @@ You need macOS 14 or later on Apple Silicon, and about 10 GB of free disk space 
 
 On first launch the app finds or downloads the Android SDK and a system image, after you accept Google's license.
 
+### Linux (headless)
+
+On x86_64 Linux with KVM, Jidr ships as the `jidr` binary: the CLI, the daemon and the MCP server, with x86_64 system images. Download `jidr-<version>-x86_64-unknown-linux-gnu.tar.gz` from the [latest release](https://github.com/jidr-dev/jidr/releases/latest), unpack it and link `jidr` onto your `PATH`. The desktop app is macOS-only for now, and screen recording of a device isn't available on Linux yet. [docs/cli.md](docs/cli.md#linux-headless) has the steps, the KVM setup and what differs from the Mac. Windows is tracked in [#50](https://github.com/jidr-dev/jidr/issues/50).
+
 ## Quick start (CLI)
 
 ```bash
@@ -57,7 +61,7 @@ Add Jidr to Claude Code as an MCP server:
 claude mcp add jidr -- jidr mcp
 ```
 
-For Claude Desktop, open `jidr-mcp-<version>-darwin-arm64.mcpb` from the [latest release](https://github.com/jidr-dev/jidr/releases/latest). Jidr is also in the [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.jidr-dev/jidr`. [docs/mcp.md](docs/mcp.md) lists the tools.
+On Linux it's the same command, with `jidr` on your `PATH`. For Claude Desktop on a Mac, open `jidr-mcp-<version>-darwin-arm64.mcpb` from the [latest release](https://github.com/jidr-dev/jidr/releases/latest). Jidr is also in the [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.jidr-dev/jidr`. [docs/mcp.md](docs/mcp.md) lists the tools.
 
 Agent skills teach Claude Code, Cursor, Codex and other agents to create and drive Jidr devices with the CLI (`jidr`), to test an app on them (`jidr-app-testing`), to get devices of their own without crowding the machine (`jidr-agent-devices`) and to root them, install Magisk modules and intercept HTTPS (`jidr-root`). Install them with the open [skills](https://skills.sh) CLI:
 

@@ -106,6 +106,7 @@ const en = {
     size: (mb: string) => `${mb} MB`,
     sha: "SHA-256",
     all: "All releases and notes on GitHub",
+    linux: "On x86_64 Linux? Get the headless CLI and MCP server (no desktop app yet)",
   },
   copy: { label: "Copy", done: "Copied" },
   docs: {
@@ -245,6 +246,7 @@ const ar: Strings = {
     size: (mb: string) => `${mb} MB`,
     sha: "SHA-256",
     all: "كل الإصدارات وملاحظاتها على GitHub",
+    linux: "على لينكس x86_64؟ نزّل أداة سطر الأوامر وخادم MCP (من دون تطبيق سطح المكتب حاليًا)",
   },
   copy: { label: "نسخ", done: "نُسخ" },
   docs: {

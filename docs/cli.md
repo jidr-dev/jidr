@@ -5,7 +5,7 @@
 ## Quick start
 
 ```bash
-jidr image list                                   # images for this Mac
+jidr image list                                   # images for this machine
 jidr image install 35 --accept-licenses           # API 35 google_apis
 jidr device create Phone --image 35               # rooted with adb by default (D7)
 jidr device start Phone                           # waits until booted
@@ -19,6 +19,53 @@ In CI, add `--json` and check the exit code:
 ```bash
 jidr --json device start Phone --timeout 300 || exit $?
 ```
+
+## Linux (headless)
+
+On x86_64 Linux, Jidr ships as the `jidr` binary alone: the CLI, the daemon and the MCP server, with no desktop app. The desktop app is macOS-only for now (D49, #50). Everything above works the same way.
+
+You need:
+
+- an x86_64 machine with glibc 2.35 or later (Ubuntu 22.04, Debian 12, Fedora 36 or newer);
+- KVM (see below);
+- about 10 GB of free disk space for the SDK and one system image.
+
+Install the tarball from the [latest release](https://github.com/jidr-dev/jidr/releases/latest):
+
+```bash
+version=X.Y.Z   # the latest release, without the v
+name=jidr-$version-x86_64-unknown-linux-gnu
+curl -fLO https://github.com/jidr-dev/jidr/releases/download/v$version/$name.tar.gz
+curl -fLO https://github.com/jidr-dev/jidr/releases/download/v$version/$name.tar.gz.sha256
+sha256sum --check $name.tar.gz.sha256
+mkdir -p ~/.local/opt ~/.local/bin
+tar -xzf $name.tar.gz -C ~/.local/opt
+ln -sf ~/.local/opt/$name/jidr ~/.local/bin/jidr
+jidr --version
+```
+
+Link `jidr` onto your `PATH`, don't copy it on its own: the daemon finds the on-device helper in `helper/` next to the binary's real path. `~/.local/bin` is on the `PATH` of most distributions; if it isn't, add it. To upgrade, unpack the new release the same way and run the `ln -sf` line again; if a daemon of the old version is still running, the next command says so and `--restart-stale` replaces it.
+
+**KVM.** The emulator needs hardware virtualization through `/dev/kvm`:
+
+```bash
+ls -l /dev/kvm                 # must exist
+sudo usermod -aG kvm $USER     # if it belongs to the kvm group and you aren't in it; log out and back in
+```
+
+If `/dev/kvm` doesn't exist, turn on Intel VT-x or AMD-V in the BIOS/UEFI settings and load the `kvm_intel` or `kvm_amd` module; in a VM or cloud instance, enable nested virtualization. `jidr sdk status` reports `"hypervisor": true` once it works, and `device start` names KVM in its error when the emulator stops for lack of it.
+
+**SDK and images.** Jidr downloads Google's emulator, platform tools and system images itself, after you accept their license, into `~/.local/share/Jidr/sdk` (D3, D8). If Android Studio's SDK is at `~/Android/Sdk` (or `ANDROID_HOME`), Jidr reads it and never changes it. On an x86_64 host, `--image 35` means the `x86_64` image; `x86_64` images from API 30 on run most arm64-only apps through Google's ARM translation. Root works the same as on the Mac, Full root included.
+
+```bash
+jidr image install 35 --accept-licenses
+jidr device create Phone --image 35
+jidr device start Phone
+```
+
+**What's different from the Mac.** Devices render in software (`-gpu swiftshader_indirect`), so they need no GL drivers. Screen recording of a device (`media.record`) isn't available yet: it fails with exit code 6 and says so. Screenshots work, and so does `phone record` for USB phones. Logs are in `~/.local/share/Jidr/logs`.
+
+**MCP.** Add Jidr to Claude Code with `claude mcp add jidr -- jidr mcp` (or the full path, `~/.local/bin/jidr`, if Claude Code doesn't see your `PATH`). The `.mcpb` bundle for Claude Desktop is macOS-only. See [mcp.md](mcp.md).
 
 ## Commands
 
