@@ -10,7 +10,7 @@ use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use crate::identity::{CHMOD, CHOWN, CMD, PIDOF, START, STOP};
+use crate::identity::{CHMOD, CHOWN, CMD, PIDOF, SETPROP, START, STOP};
 use crate::netem::{IP, Output, Run, TC};
 use crate::rpc::{PROTOCOL, Pong};
 use crate::server::{Next, Server};
@@ -116,7 +116,7 @@ impl Run for Shared {
                     ..Output::default()
                 },
             },
-            (CHOWN | CHMOD, _) => ok(String::new()),
+            (CHOWN | CHMOD | SETPROP, _) => ok(String::new()),
             (IP, _) => ok(s.routes.clone()),
             (TC, ["qdisc", "show", "dev", dev]) => {
                 ok(s.qdiscs.get(*dev).cloned().unwrap_or_default())

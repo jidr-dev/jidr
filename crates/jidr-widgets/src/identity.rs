@@ -18,7 +18,7 @@ use jidr_adb::Adb;
 use jidr_core::provider::{CallCtx, CommandSpec, DeviceParams, parse_params};
 use jidr_core::{JidrError, JidrResult};
 use jidr_helper::host::Helper;
-use jidr_helper::identity::check_android_id;
+use jidr_helper::identity::{BOOTANIM_EXIT, check_android_id};
 use jidr_helper::rpc::AndroidIdSet;
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -167,7 +167,9 @@ async fn system_server(adb: &Adb) -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
-/// Waits until a new system_server runs and the boot animation has ended.
+/// Waits until a new system_server runs and the new framework has shown its
+/// first screen (the helper reset `service.bootanim.exit` to 0 before
+/// starting it).
 async fn wait_restarted(ctx: &CallCtx, adb: &Adb, before: Option<String>) -> JidrResult<()> {
     let start = Instant::now();
     loop {
@@ -175,7 +177,7 @@ async fn wait_restarted(ctx: &CallCtx, adb: &Adb, before: Option<String>) -> Jid
         let now = system_server(adb).await;
         if now.is_some() && now != before {
             let done = adb
-                .shell("getprop service.bootanim.exit")
+                .shell(&format!("getprop {BOOTANIM_EXIT}"))
                 .await
                 .is_ok_and(|s| s.trim() == "1");
             if done {

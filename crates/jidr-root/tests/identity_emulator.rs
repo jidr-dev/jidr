@@ -75,15 +75,22 @@ fn build_probe(dir: &Path) -> PathBuf {
     out
 }
 
-/// Starts the probe and returns the Android ID it logs.
+/// Starts the probe and returns the Android ID it logs. The start is
+/// retried: right after a framework restart or a boot the activity manager
+/// may not take it yet.
 async fn probe_reads(info: &ConnectInfo) -> String {
     adb(info, &["shell", "am force-stop ly.jidr.idprobe; logcat -c"]);
-    adb(
-        info,
-        &["shell", &format!("am start -W -n {PROBE}/.MainActivity")],
-    );
-    let deadline = Instant::now() + Duration::from_secs(60);
+    let deadline = Instant::now() + Duration::from_secs(180);
+    let mut next_start = Instant::now();
     loop {
+        if Instant::now() >= next_start {
+            let out = adb(
+                info,
+                &["shell", &format!("am start -W -n {PROBE}/.MainActivity")],
+            );
+            println!("am start: {}", out.trim().replace('\n', " | "));
+            next_start = Instant::now() + Duration::from_secs(15);
+        }
         let log = adb(info, &["logcat", "-d", "-s", "JidrIdProbe"]);
         if let Some(id) = log
             .lines()
@@ -132,9 +139,11 @@ async fn android_id_reaches_apps_and_survives_a_cold_boot() {
 
     let before = call(&daemon, &ctx, "identity.get", json!({ "device": name })).await;
     println!("before: {before}");
-    assert_eq!(
-        before["android_id"].as_str().map(str::len),
-        Some(16),
+    // Android prints its own generated ID without leading zeros, so it may
+    // have fewer than 16 digits.
+    let own = before["android_id"].as_str().unwrap_or_default();
+    assert!(
+        (1..=16).contains(&own.len()) && own.chars().all(|c| c.is_ascii_hexdigit()),
         "{before}"
     );
 

@@ -37,6 +37,12 @@ pub const PIDOF: &str = "/system/bin/pidof";
 pub const ABX2XML: &str = "/system/bin/abx2xml";
 pub const CHOWN: &str = "/system/bin/chown";
 pub const CHMOD: &str = "/system/bin/chmod";
+pub const SETPROP: &str = "/system/bin/setprop";
+
+/// Set to `1` by the window manager once the new framework shows its first
+/// screen. A framework restart doesn't reset it, so the helper does, and
+/// the daemon waits for `1` again.
+pub const BOOTANIM_EXIT: &str = "service.bootanim.exit";
 
 /// The SSAID table of user 0.
 pub const SSAID_FILE: &str = "/data/system/users/0/settings_ssaid.xml";
@@ -280,6 +286,8 @@ pub fn set(r: &dyn Run, p: &AndroidIdSet) -> Result<AndroidIdSetResult, Error> {
     }
     run(r, STOP, &[])?;
     let rewritten = rewrite(r, &apps, &android_id);
+    // Best effort: without it the daemon may see the old boot's `1`.
+    let _ = r.run(SETPROP, &[BOOTANIM_EXIT, "0"]);
     // Whatever happened, the framework comes back.
     run(r, START, &[])?;
     rewritten?;
