@@ -65,12 +65,14 @@ jidr device delete Phone --yes               # only a device you created
 Jidr also lists Android phones plugged into this Mac with USB debugging on, with what plain adb can do (no root, snapshots or sensor widgets):
 
 ```bash
-jidr phone list                              # SERIAL, STATE, MODEL, ANDROID, BATTERY
-jidr phone screenshot <serial> -o shot.png   # read the PNG to see the screen
-jidr phone tap <serial> 540 1200             # screen pixels; also swipe, key, text
-jidr phone install <serial> app.apk
-jidr phone logcat <serial> -n 200
+jidr phone list                               # SERIAL, STATE, MODEL, ANDROID, BATTERY
+jidr phone screenshot R5CT40ABCDE -o shot.png # read the PNG to see the screen
+jidr phone tap R5CT40ABCDE 540 1200           # screen pixels; also swipe, key, text
+jidr phone install R5CT40ABCDE app.apk
+jidr phone logcat R5CT40ABCDE -n 200
 ```
+
+`R5CT40ABCDE` stands for the serial from `jidr phone list`; the model name works too when only one connected phone has it.
 
 A phone listed as `unauthorized` needs the user: they unlock it and tap Allow on the USB debugging prompt. A phone is the user's own device: use it only when they ask, never reboot it or run destructive shell commands on it without asking, and keep files you push under `/sdcard/Download/`.
 
