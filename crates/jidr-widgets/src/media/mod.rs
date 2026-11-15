@@ -138,6 +138,9 @@ pub async fn call(
         }
         "media.record" => {
             let p: RecordParams = parse_params(params)?;
+            if !cfg!(target_os = "macos") {
+                return Err(recording_unsupported());
+            }
             let t = target(ctx, &p.device).await?;
             let fps = p.fps.unwrap_or(30).clamp(1, 60);
             let max = Duration::from_secs(p.max_seconds.unwrap_or(3600).max(1));
@@ -326,9 +329,17 @@ async fn record(
     _max: Duration,
     _stop: Arc<AtomicBool>,
 ) -> JidrResult<Value> {
-    Err(JidrError::sdk(
-        "screen recording uses VideoToolbox and is macOS-only for now",
+    Err(recording_unsupported())
+}
+
+/// Recording encodes with VideoToolbox (D13), so it's macOS-only until
+/// another H.264 encoder lands (#50).
+fn recording_unsupported() -> JidrError {
+    JidrError::sdk(format!(
+        "screen recording is not supported on this platform ({}) yet: it encodes with VideoToolbox, which is macOS-only. Screenshots work",
+        std::env::consts::OS
     ))
+    .with_data(json!({ "unsupported": "platform", "os": std::env::consts::OS }))
 }
 
 /// Copies an RGBA frame into a `size` canvas (top-left aligned, black pad).
@@ -358,6 +369,15 @@ mod tests {
         assert_eq!(record_size(1080, 2400), (576, 1280));
         assert_eq!(record_size(720, 1280), (720, 1280));
         assert_eq!(record_size(1601, 2561), (800, 1280));
+    }
+
+    /// Off macOS, recording fails with a typed error that says why (#50).
+    #[test]
+    fn unsupported_recording_says_so() {
+        let e = recording_unsupported();
+        assert_eq!(e.code, jidr_core::ErrorCode::Sdk);
+        assert!(e.message.contains("not supported on this platform"), "{e}");
+        assert_eq!(e.data.unwrap()["unsupported"], "platform");
     }
 
     #[test]
