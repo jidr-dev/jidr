@@ -330,7 +330,7 @@ msgstr "Sin root"
 msgid "Shell root (adb)"
 msgstr "Root de shell (adb)"
 
-#: src/model.rs
+#: src/model.rs ui/phones.slint
 msgid "Shell"
 msgstr "Shell"
 
@@ -750,7 +750,7 @@ msgstr "Identidad de compilación guardada. Reinicia para aplicarla."
 msgid "Build identity saved. It applies on the next start."
 msgstr "Identidad de compilación guardada. Se aplicará en el próximo inicio."
 
-#: src/root/props/props.slint
+#: src/root/props/props.slint ui/phones.slint
 msgid "Model"
 msgstr "Modelo"
 
@@ -1061,7 +1061,7 @@ msgstr "Instala y verifica Magisk {}. Reinicia una vez (unos 40 s)."
 msgid "Magisk, verified. One reboot."
 msgstr "Magisk, verificado. Un reinicio."
 
-#: src/root/root.slint
+#: src/root/root.slint ui/phones.slint
 msgid "Root"
 msgstr "Root"
 
@@ -1443,7 +1443,7 @@ msgstr "Núcleos de CPU"
 msgid "of {}"
 msgstr "de {}"
 
-#: ui/device_form.slint ui/launcher.slint
+#: ui/device_form.slint ui/launcher.slint ui/phones.slint
 msgid "Screen"
 msgstr "Pantalla"
 
@@ -1537,7 +1537,7 @@ msgstr "Se guarda al detenerse"
 msgid "This window only"
 msgstr "Solo esta ventana"
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Open"
 msgstr "Abrir"
 
@@ -1569,11 +1569,11 @@ msgstr "Una base de solo lectura: los agentes toman prestados clones desechables
 msgid "A throwaway clone of {}, leased by an agent. Releasing it deletes it."
 msgstr "Un clon desechable de {}, prestado a un agente. Al liberarlo, se elimina."
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Android"
 msgstr "Android"
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Hardware"
 msgstr "Hardware"
 
@@ -1581,7 +1581,7 @@ msgstr "Hardware"
 msgid "Root health"
 msgstr "Estado del root"
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Version"
 msgstr "Versión"
 
@@ -1593,7 +1593,7 @@ msgstr "Imagen"
 msgid "Profile"
 msgstr "Perfil"
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/phones.slint
 msgid "Serial"
 msgstr "N.º de serie"
 
@@ -1689,9 +1689,113 @@ msgstr "Escribe un comando o el nombre de un dispositivo"
 msgid "Nothing matches “{}”."
 msgstr "Nada coincide con “{}”."
 
-#: ui/player.slint
+#: ui/phones.slint ui/widgets/panels.slint
+msgid "Wi-Fi"
+msgstr "Wi-Fi"
+
+#: ui/phones.slint
+msgid "USB"
+msgstr "USB"
+
+#: ui/phones.slint
+msgid "Phones"
+msgstr "Teléfonos"
+
+#: ui/phones.slint
+msgid "Plug in a phone with USB debugging on."
+msgstr "Conecta un teléfono con la depuración USB activada."
+
+#: ui/phones.slint
+msgid "Screenshot"
+msgstr "Captura de pantalla"
+
+#: ui/phones.slint
+msgid "A phone over adb: no root modes, snapshots or sensor controls."
+msgstr "Un teléfono por adb: sin modos de root, instantáneas ni controles de sensores."
+
+#: ui/phones.slint
+msgid "Connecting"
+msgstr "Conectando"
+
+#: ui/phones.slint
+msgid "Waiting for the phone"
+msgstr "Esperando el teléfono"
+
+#: ui/phones.slint
+msgid "Connection"
+msgstr "Conexión"
+
+#: ui/phones.slint
+msgid "ABI"
+msgstr "ABI"
+
+#: ui/phones.slint
+msgid "Maker"
+msgstr "Fabricante"
+
+#: ui/phones.slint ui/player.slint
+msgid "Battery"
+msgstr "Batería"
+
+#: ui/phones.slint
+msgid "Via"
+msgstr "Vía"
+
+#: ui/phones.slint
+msgid "State"
+msgstr "Estado"
+
+#: ui/phones.slint
+msgid "Not available"
+msgstr "No disponible"
+
+#: ui/phones.slint ui/settings.slint
+msgid "Tools"
+msgstr "Herramientas"
+
+#: ui/phones.slint
+msgid "Stop recording"
+msgstr "Detener grabación"
+
+#: ui/phones.slint
+msgid "Record"
+msgstr "Grabar"
+
+#: ui/phones.slint
+msgid "Install APK…"
+msgstr "Instalar APK…"
+
+#: ui/phones.slint
+msgid "Push file…"
+msgstr "Enviar archivo…"
+
+#: ui/phones.slint
+msgid "Pull file…"
+msgstr "Traer archivo…"
+
+#: ui/phones.slint ui/player.slint
 msgid "Logcat"
 msgstr "Logcat"
+
+#: ui/phones.slint
+msgid "Reboot…"
+msgstr "Reiniciar…"
+
+#: ui/phones.slint
+msgid "Drop an APK on the open screen to install it, or any other file to copy it to Download."
+msgstr "Suelta un APK en la pantalla abierta para instalarlo, o cualquier otro archivo para copiarlo a Download."
+
+#: ui/phones.slint
+msgid "Details"
+msgstr "Detalles"
+
+#: ui/phones.slint
+msgid "Connecting to the screen…"
+msgstr "Conectando con la pantalla…"
+
+#: ui/phones.slint
+msgid "Recording… press the record button again to save it"
+msgstr "Grabando… pulsa de nuevo el botón de grabar para guardarlo"
 
 #: ui/player.slint
 msgid "Filter tag, pid or text"
@@ -1708,10 +1812,6 @@ msgstr "Seguir"
 #: ui/player.slint
 msgid "Paused"
 msgstr "En pausa"
-
-#: ui/player.slint
-msgid "Battery"
-msgstr "Batería"
 
 #: ui/player.slint
 msgid "GPS"
@@ -1868,10 +1968,6 @@ msgstr "Cualquier otro cliente MCP"
 #: ui/settings.slint
 msgid "mcp config (JSON)"
 msgstr "Configuración de MCP (JSON)"
-
-#: ui/settings.slint
-msgid "Tools"
-msgstr "Herramientas"
 
 #: ui/settings.slint
 msgid "Version {} · macOS 14+ · Apple Silicon"
@@ -2043,10 +2139,6 @@ msgstr "5 % · batería baja"
 #: ui/widgets/panels.slint
 msgid "100% · full"
 msgstr "100 % · llena"
-
-#: ui/widgets/panels.slint
-msgid "Wi-Fi"
-msgstr "Wi-Fi"
 
 #: ui/widgets/panels.slint
 msgid "Mobile data"
