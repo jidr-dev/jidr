@@ -25,11 +25,12 @@ const t = strings(Astro.currentLocale);
   />
   <div class="sponsorband" style="align-items:center;text-align:center">
     <div class="dl">
-      <a class="btn btn-primary btn-lg" href={links.dmg}><Icon name="download" class="ic i16" />{t.hero.download}</a>
+      <a class="btn btn-primary btn-lg" href={links.dmg} data-track="download" data-track-label="ci"><Icon name="download" class="ic i16" />{t.hero.download}</a>
       <span class="sum"><bdi>{t.download.system}</bdi> · <bdi>{t.download.size(release.sizeMb)}</bdi></span>
       <span class="sum" lang="en" dir="ltr"><span>{t.download.sha}</span><code class="sha">{release.sha256}</code></span>
       {release.homebrew && <span class="sum"><bdi>{t.hero.brew}</bdi></span>}
       {release.homebrew && <span class="sum"><bdi>{t.hero.upgrade}</bdi></span>}
+      <a class="sum" href={links.doc("docs/cli.md#linux-headless")}>{t.download.linux}</a>
       <a class="sum" href={links.releases}>{t.download.all}</a>
     </div>
   </div>

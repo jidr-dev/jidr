@@ -10,7 +10,9 @@ Claude Code:
 claude mcp add jidr -- jidr mcp
 ```
 
-Claude Desktop: download `jidr-mcp-<version>-darwin-arm64.mcpb` from the [latest release](https://github.com/jidr-dev/jidr/releases/latest) and open it, or add Jidr by hand to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+On Linux (headless, [cli.md](cli.md#linux-headless)) the command is the same once `jidr` is on your `PATH`; if Claude Code doesn't see it, give the full path: `claude mcp add jidr -- ~/.local/bin/jidr mcp`. The tools are the same as on the Mac, except screen recording of a device.
+
+Claude Desktop (macOS): download `jidr-mcp-<version>-darwin-arm64.mcpb` from the [latest release](https://github.com/jidr-dev/jidr/releases/latest) and open it, or add Jidr by hand to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
@@ -46,7 +48,9 @@ Each release also publishes Jidr to the [MCP Registry](https://registry.modelcon
 
 **USB phones (#92):** `screenshot`, `tap`, `swipe`, `type_text`, `press_key`, `ui_dump` and `logcat_tail` also take the adb serial of a phone plugged into this Mac with USB debugging on (`command_run physical.list` lists them). They go through adb only: the screenshot is `screencap` fitted in 1024×1024, keys are `input keyevent`, and the UI dump stays in `/data/local/tmp`. The other `physical.*` commands (install, push, pull, record, reboot) go through `command_run`; `physical.shell` is destructive and a phone is never agent-owned, so it needs `jidr mcp --allow-destructive`. There's no leasing or locking for phones: an agent should use a phone only when the user names it.
 
-Everything else goes through `command_run`, e.g. playing a WAV on this Mac as the device's microphone for a voice flow: `command_run {command: "audio.inject", params: {device, path, loop?}, timeout_s: 5}` returns the job while it plays, and `command_run {command: "audio.stop", params: {device}}` ends it. To record the screen with the device's audio: `command_run {command: "media.record", params: {device, max_seconds, audio?}}` (`audio` defaults to `true`; pass `false` for a silent video). The result's `audio` says whether the MP4 has an audio track; it's `false` when the device has no audio or its stream failed, and the recording still succeeds.
+**Files:** `file.push`, `file.pull` and `file.install` go through `command_run`, as do synced folders (#27): `command_run {command: "file.sync.start", params: {device, local, remote?}}` keeps a folder on this Mac copied to the device (one way: a first copy, then each change, deletions included; `.git`, `node_modules` and `.DS_Store` are skipped, and a folder with more than 10000 files is refused unless `max_files` raises it). It returns the sync with its `id` and file count while the first copy runs; `file.sync.list` shows its state, `pushed` count and `last_error`, and `file.sync.stop {id}` ends it. A sync ends by itself when the device stops. Sync only folders the user named: deleting a file there deletes it on the device.
+
+Everything else goes through `command_run`, e.g. playing a WAV on this Mac as the device's microphone for a voice flow: `command_run {command: "audio.inject", params: {device, path, loop?}, timeout_s: 5}` returns the job while it plays, and `command_run {command: "audio.stop", params: {device}}` ends it. A game controller on this Mac can drive a device the same way: `command_run {command: "input.gamepad.connect", params: {device}, timeout_s: 5}` returns the job, and `command_run {command: "input.gamepad.disconnect", params: {device}}` ends it. To record the screen with the device's audio: `command_run {command: "media.record", params: {device, max_seconds, audio?}}` (`audio` defaults to `true`; pass `false` for a silent video). The result's `audio` says whether the MP4 has an audio track; it's `false` when the device has no audio or its stream failed, and the recording still succeeds.
 
 Every tool carries `readOnlyHint`, `destructiveHint`, `idempotentHint` and `openWorldHint` annotations. Jidr errors come back as tool results with `isError: true` and structured `{code, message, data}` (codes as in docs/control-protocol.md), so an agent can recover, e.g. start a stopped device after `not_found`.
 

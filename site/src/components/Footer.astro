@@ -12,10 +12,11 @@ const f = t.footer;
     <h5 aria-level="2"><bdi lang="en">Jidr</bdi> <span lang="ar" style="color:var(--jidr-color-root)">جذر</span></h5>
     <ul>
       <li>{f.licences}</li>
-      <li><a href={links.repo}>{f.source}</a></li>
+      <li><a href={links.repo} data-track="github" data-track-label="footer">{f.source}</a></li>
       <li><a href={links.x} rel="me">{f.x} <bdi lang="en">{links.xHandle}</bdi></a></li>
       <li><a href="/blog/" hreflang="en">{f.blog}</a></li>
       <li>{f.copyright}</li>
+      <li>{f.analytics}</li>
     </ul>
   </div>
   <div>

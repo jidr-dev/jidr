@@ -57,6 +57,10 @@ Commands take a device as `"device": "<name or id>"`; names are unique, case-ins
 
 `physical.*` commands work on Android phones that `adb` sees with USB debugging on (#92). A phone isn't a Jidr device: it has no id, no AVD, no root modes, snapshots or sensor widgets, and no lock. It's named by its adb serial (or its model, when only one connected phone has it) in `device`. Emulators that adb also lists are left out. A phone that isn't `ready` answers `not_found` with `details: {serial, state}` and a message that says what to do (unlock it and allow USB debugging, replug it…). The first `physical.*` call starts a watcher on `adb track-devices -l` that publishes the `physical.*` events below.
 
+## Synced folders
+
+`file.sync.start` keeps a host folder copied to a running device, one way (#27). It refuses a folder with more than `max_files` files (10000) after skips, with `usage` and `details.max_files`, and answers at once with the sync (`{id, device, name, local, remote, state: mirroring|syncing|watching, files, bytes, ignore, pushed, removed, started_at, last_synced_at?, last_error?}`) while the first copy runs. Then it watches the folder and sends each batch of changes once the folder has been quiet for 300 ms (at most every 2 s while it keeps changing): files written are pushed, paths deleted or renamed away are deleted on the device. Files that are only on the device are left alone. `.git`, `node_modules` and `.DS_Store` are skipped at any depth unless `no_default_ignore`; symlinks aren't followed. One sync per device folder: a second one into the same folder, or a folder inside it, is `usage`. A sync ends with its device: when the device stops, hibernates, crashes or is deleted, `file.sync.stopped` says why, and it doesn't come back at the next start or after a daemon restart; start it again.
+
 ## Jobs
 
 Commands marked *long-running* don't block. After validation and locking they answer:
@@ -95,6 +99,11 @@ Subscribing again replaces the filter. Topics:
 | `physical.connected` | `{serial, state}`: adb sees a new physical phone (`state`: `ready`, `unauthorized`, `offline`, `no_permissions`, `connecting`, `other`) |
 | `physical.changed` | `{serial, state}`: a phone's state changed (it accepted the RSA prompt, went offline…) |
 | `physical.disconnected` | `{serial}`: the phone is gone (unplugged, rebooting) |
+| `file.sync.started` | the new sync, as `file.sync.list` shows it |
+| `file.sync.progress` | `{id, device, phase: mirror\|change, done, total}`: files copied so far in the first copy or a batch of changes |
+| `file.sync.synced` | `{id, device, pushed, removed}`: the first copy or a batch of changes reached the device |
+| `file.sync.error` | `{id, device, error}`: a copy or the watcher failed; the sync keeps watching |
+| `file.sync.stopped` | `{id, device, reason: requested\|device_stopped\|device_deleted\|folder_gone\|watch_failed}` |
 | `events.lagged` | `{missed}`: the connection fell behind and events were dropped |
 
 ## Connection-scoped methods
@@ -486,6 +495,35 @@ Copy a file to a running device (default /sdcard/Download/)
 | `local` | string | yes | Local file. |
 | `remote` | string |  | Device path; default `/sdcard/Download/`. |
 
+#### `file.sync.list`
+
+Folder syncs and their state
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string |  | Only this device's syncs (name or id). |
+
+#### `file.sync.start`
+
+Keep a folder on this machine copied to a running device: a first full copy, then every change (one way)
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes | Device name or id (must be running). |
+| `local` | string | yes | Folder on this machine (an absolute path). |
+| `remote` | string |  | Folder on the device; default `/sdcard/Download/<the local folder's name>`. |
+| `ignore` | string[] |  | More file or folder names to skip at any depth (exact names, not patterns), besides `.git`, `node_modules` and `.DS_Store`. |
+| `no_default_ignore` | boolean |  | Sync `.git`, `node_modules` and `.DS_Store` too. |
+| `max_files` | integer |  | Refuse a folder with more files than this, after skips (default 10000). |
+
+#### `file.sync.stop`
+
+Stop a folder sync
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `id` | string | yes | Sync id (`file.sync.list`), or its first characters when they name one sync. |
+
 ### `fingerprint.*`
 
 #### `fingerprint.remove`
@@ -603,6 +641,39 @@ System images for this host, installed or available
 | Param | Type | Required | Description |
 |---|---|---|---|
 | `available` | boolean |  | Include images that aren't installed (needs network; falls back to installed images when offline). |
+
+### `input.*`
+
+#### `input.gamepad.connect`
+
+Forward a game controller on this computer to the device until input.gamepad.disconnect · long-running (job)
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes | Device name or id. |
+| `controller` | integer |  | Which controller: an `id` from `input.gamepad.list`. Default: the first one connected. |
+
+#### `input.gamepad.disconnect`
+
+Stop forwarding the game controller to the device
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes | Device name or id. |
+
+#### `input.gamepad.get`
+
+Whether a game controller is being forwarded to the device
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes | Device name or id. |
+
+#### `input.gamepad.list`
+
+List the game controllers connected to this computer
+
+No params.
 
 ### `jobs.*`
 
@@ -1238,4 +1309,6 @@ Save a snapshot of a running device · long-running (job) · locks the device
 | 0.1 (additive) | #92 (D46, proposed): physical phones over plain adb, from the new `physical` provider in the daemon. `physical.list` → `[PhysicalDevice]` (`{serial, state: ready \| unauthorized \| offline \| no_permissions \| connecting \| other, connection: usb \| wifi, model?, manufacturer?, product?, android?, api?, abi?, battery?: {level, charging}, usb?, hint?}`), `physical.details {device}` (adds `screen: {width, height, density?}`), `physical.connect_info {device}` → `{serial, adb_path}`, `physical.screenshot {device, path?}` → `{path, width, height}`, `physical.record {device, path?, max_seconds?}` (long-running; `screenrecord`, at most 180 s) → `{path, seconds}` and `physical.record_stop {device}`, `physical.install`, `physical.push`, `physical.pull`, `physical.logcat` (same params and results as `file.install`, `file.push`, `file.pull`, `logcat.dump`), `physical.shell {device, command}` (destructive) → `{exit_code, stdout, stderr}`, `physical.reboot`, `physical.tap {device, x, y}`, `physical.swipe {device, x1, y1, x2, y2, duration_ms?}`, `physical.key {device, key}`, `physical.text {device, text}`. New events `physical.connected`, `physical.changed`, `physical.disconnected`. `logcat.follow` also accepts a ready phone's serial (its `logcat` events then carry the serial as `device`). No existing command's result changed. |
 | 0.1 (additive) | #19: `identity.get {device}` → `{android_id, imei}` (each null when unknown; no root needed) and `identity.set {device, android_id}` (a job; locks the device) → the same, widgets provider. `android_id` (16 hex digits, any case, returned in lower case) is given to every installed app as its SSAID through the rooted on-device helper (helper method `identity.android_id.set`, which restarts the Android framework) and then set as the global setting. It needs root mode `adb` or `magisk` (`usage` otherwise); a bad ID is `usage` with `error.data.field: "android_id"`. The IMEI is read only. No existing command changed. |
 | 0.1 (additive) | #17 (D44): `network.shaping.set` gains optional `dns` (`normal` \| `slow` \| `fail`) and `dns_delay_ms` (1–30000, default 3000; alone it means `slow`), and `loss_pct` becomes optional: a field left out keeps the device's current value, and giving none is `usage`. Both commands' results gain `dns` and `dns_delay_ms` (null when interfaces differ, or when DNS isn't `slow`), and each interface gains `dns` and `dns_delay_ms`. `Device` gains `network_shaping {loss_pct, dns, dns_delay_ms?}` (absent when off): what `set` stored, re-applied by the widgets boot hook after every boot (skipped when the kernel already has it; reported as `device.hook_failed` when the root mode is `none`). Clearing (`0` and `normal`) forgets it, and on a `none` device works without the helper, returning `interfaces: []`. The helper's protocol becomes 2 (internal). With no interface that has a default route (Wi-Fi and mobile data off, or not up yet), both commands now fail with `usage` instead of `unexpected` (`helper_error: "usage"`); and they also cover interfaces that still have Jidr's qdisc after losing their route, so clearing leaves none behind. No existing field changed meaning. |
+| 0.1 (additive) | #27: synced folders, from the new `sync` provider in the daemon. `file.sync.start {device, local, remote?, ignore?, no_default_ignore?, max_files?}` → the sync `{id, device, name, local, remote, state, files, bytes, ignore, pushed, removed, started_at, last_synced_at?, last_error?}` keeps a host folder copied to a running device (one way: a first copy, then each change, deletions included); `file.sync.stop {id}` (an id or a unique prefix) → the sync as it was; `file.sync.list {device?}` → `[sync]`. A folder past `max_files` (10000) is `usage` with `details.max_files`. New events `file.sync.started`, `file.sync.progress`, `file.sync.synced`, `file.sync.error`, `file.sync.stopped`. Syncs end when their device stops and aren't resumed. No existing command changed. |
+| 0.1 (additive) | #23: game controllers, widgets provider. `input.gamepad.list` → `{controllers: [{id, name, vendor?, product?}]}` (the controllers on this computer; macOS only for now, `usage` elsewhere). `input.gamepad.connect {device, controller?}` (long-running) replays the controller into the device as a virtual USB Xbox 360 controller, made with AOSP's `hid` command over `adb shell` (no root), until `input.gamepad.disconnect {device}` → `{disconnected}`, a cancel, the controller going away or the device stopping → `{controller, reports, ended: disconnected \| unplugged \| device_stopped}`; one per device (`busy`), `not_found` with no controller, `usage` when the guest has no `hid` command. `input.gamepad.get {device}` → `{connected}`. No existing command changed. |
 | 0.1 (additive) | #28: `media.record` gains optional `audio` (default `true`): the device's audio from the emulator's gRPC `streamAudio` (48 kHz 16-bit stereo) is encoded to AAC in the same MP4, on the video's clock; silence fills the times the device plays nothing. Its result gains `audio` (bool): whether the file has an audio track. It's `false` when `audio` was `false`, when the device starts with `-no-audio`, or when the audio stream couldn't be opened, in which case the recording is video-only and the daemon logs a warning; an audio failure never fails the recording. No other field changed. |

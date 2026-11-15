@@ -113,6 +113,16 @@ impl Adb {
             .map_err(|e| JidrError::sdk(format!("cannot run adb at {}: {e}", self.bin.display())))
     }
 
+    /// Like [`spawn`](Self::spawn), with a piped stdin to feed a long-lived
+    /// guest command (`shell hid -`). Closing it ends the command.
+    pub fn spawn_with_stdin(&self, args: &[&str]) -> JidrResult<Child> {
+        self.command(args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .spawn()
+            .map_err(|e| JidrError::sdk(format!("cannot run adb at {}: {e}", self.bin.display())))
+    }
+
     /// Runs adb and returns its output, whatever the exit status.
     pub async fn raw(&self, args: &[&str]) -> JidrResult<Output> {
         let child = self.command(args).spawn().map_err(|e| {
@@ -331,6 +341,30 @@ impl Adb {
             .map(|_| ())
     }
 
+    /// Copies several local files or folders into one existing device
+    /// folder in one `adb push a b c dir/`, like `cp -r`: a folder lands as
+    /// `dir/<its name>`, merged with what is there. `newer_only` (`--sync`)
+    /// skips files the device has at least as new; adb keeps modification
+    /// times.
+    pub async fn push_many(
+        &self,
+        locals: &[PathBuf],
+        remote_dir: &str,
+        newer_only: bool,
+    ) -> JidrResult<()> {
+        let locals: Vec<String> = locals
+            .iter()
+            .map(|p| p.to_string_lossy().into_owned())
+            .collect();
+        let mut args = vec!["push"];
+        if newer_only {
+            args.push("--sync");
+        }
+        args.extend(locals.iter().map(String::as_str));
+        args.push(remote_dir);
+        self.run(&args).await.map(|_| ())
+    }
+
     pub async fn pull(&self, remote: &str, local: &Path) -> JidrResult<()> {
         self.run(&["pull", remote, &local.to_string_lossy()])
             .await
@@ -482,6 +516,11 @@ impl LogcatStream {
     }
 }
 
+/// Quotes one argument for the device's `sh`.
+pub fn shell_quote(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "'\\''"))
+}
+
 /// `input text '<text>'` for the device shell: spaces become `%s` (how
 /// `input text` spells them) and the argument is single-quoted.
 pub fn input_text_command(text: &str) -> String {
@@ -522,6 +561,13 @@ pub fn parse_install_failure(text: &str) -> Option<InstallFailure> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shell_quote_survives_quotes_and_spaces() {
+        assert_eq!(shell_quote("a b"), "'a b'");
+        assert_eq!(shell_quote("it's"), r"'it'\''s'");
+        assert_eq!(shell_quote("$(rm -rf /)"), "'$(rm -rf /)'");
+    }
 
     #[test]
     fn parses_device_list() {

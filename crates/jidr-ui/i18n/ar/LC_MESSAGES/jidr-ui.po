@@ -1385,6 +1385,50 @@ msgstr "اختر مسار GPX أو KML"
 msgid "An Android ID is 16 hexadecimal digits (0–9 and a–f)."
 msgstr "يتكوّن Android ID من 16 رقمًا ستّ عشريًا: من 0 إلى 9 ومن a إلى f."
 
+#: src/widgets/mod.rs
+msgid "The game controller was disconnected from this Mac."
+msgstr "فُصلت وحدة تحكم الألعاب عن جهاز ماك هذا."
+
+#: src/widgets/sync.rs
+msgid "Copying changes…"
+msgstr "جارٍ نسخ التغييرات…"
+
+#: src/widgets/sync.rs
+msgid "Copying {} of {} files…"
+msgstr "جارٍ نسخ الملف ⁨{}⁩ من ⁨{}⁩…"
+
+#: src/widgets/sync.rs
+msgid "Start the device first, then sync the folder"
+msgstr "شغّل الجهاز أولًا، ثم زامن المجلد"
+
+#: src/widgets/sync.rs
+msgid "Syncing {} to {}"
+msgstr "تجري مزامنة ⁨{}⁩ إلى ⁨{}⁩"
+
+#: src/widgets/sync.rs
+msgid "Choose a folder to keep copied to the device"
+msgstr "اختر مجلدًا لتبقى نسخته على الجهاز محدَّثة"
+
+#: src/widgets/sync.rs
+msgid "Copying {n} file…"
+msgid_plural "Copying {n} files…"
+msgstr[0] "جارٍ النسخ…"
+msgstr[1] "جارٍ نسخ ملف واحد…"
+msgstr[2] "جارٍ نسخ ملفين…"
+msgstr[3] "جارٍ نسخ ⁨{n}⁩ ملفات…"
+msgstr[4] "جارٍ نسخ ⁨{n}⁩ ملفًا…"
+msgstr[5] "جارٍ نسخ ⁨{n}⁩ ملف…"
+
+#: src/widgets/sync.rs
+msgid "Up to date · {n} file copied"
+msgid_plural "Up to date · {n} files copied"
+msgstr[0] "محدَّث · لم يُنسخ أي ملف"
+msgstr[1] "محدَّث · نُسخ ملف واحد"
+msgstr[2] "محدَّث · نُسخ ملفان"
+msgstr[3] "محدَّث · نُسخت ⁨{n}⁩ ملفات"
+msgstr[4] "محدَّث · نُسخ ⁨{n}⁩ ملفًا"
+msgstr[5] "محدَّث · نُسخ ⁨{n}⁩ ملف"
+
 #: src/wizard/mod.rs
 msgid "Found · used read-only"
 msgstr "موجود · يُستخدم للقراءة فقط"
@@ -1614,7 +1658,7 @@ msgstr "استئناف"
 msgid "Hibernate"
 msgstr "إسبات"
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/widgets/panels.slint
 msgid "Stop"
 msgstr "إيقاف"
 
@@ -2475,6 +2519,30 @@ msgstr "بلا كاميرا"
 #: ui/widgets/panels.slint
 msgid "Applies the next time the device starts."
 msgstr "يُطبَّق في المرة القادمة التي يُشغَّل فيها الجهاز."
+
+#: ui/widgets/panels.slint
+msgid "Synced folders"
+msgstr "المجلدات المتزامنة"
+
+#: ui/widgets/panels.slint
+msgid "Sync a folder…"
+msgstr "مزامنة مجلد…"
+
+#: ui/widgets/panels.slint
+msgid "Copies a folder on this Mac to the device and keeps it up to date, deletions included. Skips .git and node_modules."
+msgstr "ينسخ مجلدًا من جهاز ماك هذا إلى الجهاز ويبقيه محدَّثًا، بما في ذلك الحذف. يتخطى ⁨.git⁩ و⁨node_modules⁩."
+
+#: ui/widgets/panels.slint
+msgid "Game controller"
+msgstr "وحدة تحكم الألعاب"
+
+#: ui/widgets/panels.slint
+msgid "Use this Mac's controller"
+msgstr "استخدام وحدة التحكم المتصلة بجهاز ماك هذا"
+
+#: ui/widgets/panels.slint
+msgid "Android sees an Xbox 360 controller."
+msgstr "يتعرّف Android عليها كوحدة تحكم Xbox 360."
 
 #: ui/widgets/panels.slint
 msgid "Latitude"

@@ -64,6 +64,13 @@ pub enum Cmd {
         remote: String,
         local: PathBuf,
     },
+    /// Keep a folder on this machine copied to a running device, one way:
+    /// a first full copy, then every change, until you stop it or the device
+    /// stops. Skips .git, node_modules and .DS_Store.
+    Sync {
+        #[command(subcommand)]
+        cmd: SyncCmd,
+    },
     /// Flash a zip (ADR-0004): a Magisk or Zygisk module installs and
     /// reboots a Full-root device; recovery (TWRP), Riru and OTA/factory
     /// image zips are refused (exit 2); anything else, or a module on a device
@@ -161,6 +168,11 @@ pub enum Cmd {
     Audio {
         #[command(subcommand)]
         cmd: AudioCmd,
+    },
+    /// Drive a device with a game controller connected to this Mac.
+    Gamepad {
+        #[command(subcommand)]
+        cmd: GamepadCmd,
     },
     /// The download cache (Magisk APKs and other pinned files, by SHA-256).
     Cache {
@@ -770,6 +782,53 @@ pub enum AudioCmd {
 }
 
 #[derive(Debug, Subcommand)]
+pub enum GamepadCmd {
+    /// The game controllers connected to this computer.
+    List,
+    /// Forward a controller to a running device, which sees an Xbox 360
+    /// controller; runs until Ctrl-C or `jidr gamepad disconnect`.
+    Connect {
+        device: String,
+        /// The controller's id from `jidr gamepad list` (default: the first).
+        #[arg(long)]
+        controller: Option<usize>,
+        /// Print the job id and return; stop it with `jidr gamepad disconnect`.
+        #[arg(long)]
+        no_wait: bool,
+    },
+    /// Stop forwarding the controller.
+    Disconnect { device: String },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum SyncCmd {
+    /// Sync a folder to the device (default destination
+    /// /sdcard/Download/<folder name>); waits for the first copy. Deleting
+    /// on this machine deletes on the device.
+    Start {
+        device: String,
+        local: PathBuf,
+        remote: Option<String>,
+        /// Also skip this file or folder name at any depth (repeatable).
+        #[arg(long = "ignore", value_name = "NAME")]
+        ignore: Vec<String>,
+        /// Sync .git, node_modules and .DS_Store too.
+        #[arg(long)]
+        no_default_ignore: bool,
+        /// Refuse a folder with more files than this (default 10000).
+        #[arg(long, value_name = "N")]
+        max_files: Option<u64>,
+        /// Return as soon as the sync starts, before the first copy ends.
+        #[arg(long)]
+        no_wait: bool,
+    },
+    /// Stop a sync, by its id or the first characters of it.
+    Stop { id: String },
+    /// Running syncs, of every device or one.
+    List { device: Option<String> },
+}
+
+#[derive(Debug, Subcommand)]
 pub enum JobsCmd {
     /// Running jobs.
     List {
@@ -866,6 +925,30 @@ mod tests {
                 .is_err()
         );
         assert!(Cli::try_parse_from(["jidr", "audio", "stop", "P"]).is_ok());
+    }
+
+    #[test]
+    fn gamepad_flags() {
+        let cli = Cli::try_parse_from(["jidr", "gamepad", "connect", "Phone", "--controller", "2"])
+            .unwrap();
+        let Cmd::Gamepad {
+            cmd:
+                GamepadCmd::Connect {
+                    device,
+                    controller,
+                    no_wait,
+                },
+        } = cli.cmd
+        else {
+            panic!("not gamepad connect");
+        };
+        assert_eq!(
+            (device.as_str(), controller, no_wait),
+            ("Phone", Some(2), false)
+        );
+        assert!(Cli::try_parse_from(["jidr", "gamepad", "list"]).is_ok());
+        assert!(Cli::try_parse_from(["jidr", "gamepad", "disconnect", "P"]).is_ok());
+        assert!(Cli::try_parse_from(["jidr", "gamepad", "connect"]).is_err());
     }
 
     #[test]

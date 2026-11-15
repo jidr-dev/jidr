@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.6.0](https://github.com/jidr-dev/jidr/compare/v0.5.0...v0.6.0) (2026-11-15)
+
+
+### Features
+
+* **cli:** jidr flash runs file.flash ([130283b](https://github.com/jidr-dev/jidr/commit/130283bd8e35d376ae16e757a600849b6b488678))
+* **cli:** jidr identity &lt;device&gt; [--android-id id] ([b91bd0a](https://github.com/jidr-dev/jidr/commit/b91bd0ad3bae21c2da1614ced351071bc405a0e8))
+* **cli:** jidr phone for physical phones ([1409278](https://github.com/jidr-dev/jidr/commit/14092781294647998df69d2eec3ffdb79a28e646))
+* **daemon:** physical phones over adb (physical.*) ([59ec354](https://github.com/jidr-dev/jidr/commit/59ec354720e6d12896063058f3ca15bee17496b9))
+* flashable zips — ADR-0004, file.flash and jidr flash ([#72](https://github.com/jidr-dev/jidr/issues/72)) ([1841c2d](https://github.com/jidr-dev/jidr/commit/1841c2d06418b0b458c698b61917fe8ba1c97481))
+* **gui:** Arabic, Spanish, Simplified Chinese and Brazilian Portuguese app UI ([ae8d803](https://github.com/jidr-dev/jidr/commit/ae8d8033d202015b467c485de4489df2032f9365))
+* **gui:** Arabic, Spanish, Simplified Chinese and Brazilian Portuguese catalogs ([dd7b8ce](https://github.com/jidr-dev/jidr/commit/dd7b8cec44b67929924c48787c413b2ee239f223))
+* **gui:** translate the app and add a language setting ([a0da88b](https://github.com/jidr-dev/jidr/commit/a0da88be1bc9e1bbd612416eeaeb9796a352d16f))
+* **helper:** give every installed app a new Android ID ([85c51c3](https://github.com/jidr-dev/jidr/commit/85c51c3ee8a64039d94c3f0e9b6acdab2cb6b1a9))
+* Identifiers: change the Android ID as apps read it (IMEI read only) ([7696c8b](https://github.com/jidr-dev/jidr/commit/7696c8b55b6254cdd3aae959160bd6d9e1b9327c))
+* **mcp:** agent tools take a USB phone's serial ([5186465](https://github.com/jidr-dev/jidr/commit/5186465223ef614be753a87dee6b61286aab5b4a))
+* **network:** bad DNS and packet loss kept across cold boots ([20f36cf](https://github.com/jidr-dev/jidr/commit/20f36cfc6dd6555a35456f46a48d838485c8f437))
+* **network:** bad DNS and packet loss kept across cold boots ([4707440](https://github.com/jidr-dev/jidr/commit/470744084133106e4a9dfa5d4126542b9f4f5e05)), closes [#17](https://github.com/jidr-dev/jidr/issues/17)
+* **root:** detect zip types and add file.flash (ADR-0004) ([366b761](https://github.com/jidr-dev/jidr/commit/366b761d73793d97fec53aca13d4d13c8b10af47))
+* **ui:** Identifiers section in the widgets panel ([63c8c14](https://github.com/jidr-dev/jidr/commit/63c8c1440a5a1c02b6b6e31d691a817b5cb4d41d))
+* **ui:** Phones group, phone details and live screen ([d79367b](https://github.com/jidr-dev/jidr/commit/d79367be36050decf0ac8ef327c2112cdeb51e40))
+* **ui:** send dropped zips through file.flash ([75ea6ec](https://github.com/jidr-dev/jidr/commit/75ea6ec16b62da19bc623d82e124fc12b97f0996))
+* USB phones next to the emulators (physical.*, jidr phone, MCP, Phones group) ([3b0dbe2](https://github.com/jidr-dev/jidr/commit/3b0dbe2cef1e44e0bef3658a7ba957bb9b431ea4))
+* **widgets:** identity.get and identity.set (Identifiers) ([59ae727](https://github.com/jidr-dev/jidr/commit/59ae7279e04f315be8a78280cced58af8192603e))
+
+
+### Bug Fixes
+
+* **network:** bad DNS is unsupported on API 30, and never retried at boot ([64b5f78](https://github.com/jidr-dev/jidr/commit/64b5f784e2767587cb87ce9fdf7bca66b904ced4))
+* **network:** say when there's no network, and clear interfaces that lost their route ([e376d97](https://github.com/jidr-dev/jidr/commit/e376d97785dd45b295ef8b370c6e58ee742f938b))
+* **ui:** translate the Identifiers section ([50ec69c](https://github.com/jidr-dev/jidr/commit/50ec69c06895147a196befa3a3d91194b01a1374))
+* **ui:** translate the Phones strings [#103](https://github.com/jidr-dev/jidr/issues/103) added ([3fff16b](https://github.com/jidr-dev/jidr/commit/3fff16bb7ee1e4279cdf31a19d54ece5dc9f4efd))
+* **widgets:** wait for the restarted framework, not the old boot's flag ([a0391ea](https://github.com/jidr-dev/jidr/commit/a0391eaaa5baf8703578bfb2c504045515184968))
+
 ## [0.5.0](https://github.com/AbdurahmanAlmehdi/jidr/compare/v0.4.0...v0.5.0) (2026-11-13)
 
 

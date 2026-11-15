@@ -19,5 +19,5 @@ const mark = symbol.replace("<svg", '<svg class="mark" aria-hidden="true"');
     {phase === "launch" && <a class="hide-sm" href={`${t.home}#docs`}>{t.nav.docs}</a>}
     <a class="lang-switch" href={t.other.href} lang={t.other.lang} hreflang={t.other.lang}>{t.other.label}</a>
   </nav>
-  <a class="star" href={links.repo}><span><Icon name="star" class="ic i14" />{t.nav.star}</span></a>
+  <a class="star" href={links.repo} data-track="github" data-track-label="nav-star"><span><Icon name="star" class="ic i14" />{t.nav.star}</span></a>
 </header>

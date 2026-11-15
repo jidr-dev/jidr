@@ -18,12 +18,12 @@ const meta =
   {
     phase === "launch" ? (
       <div class="cta">
-        <a class="btn btn-primary btn-lg" href={links.dmg}><Icon name="download" class="ic i16" />{t.hero.download}</a>
-        <a class="btn btn-lg" href={links.repo}>{t.hero.github}</a>
+        <a class="btn btn-primary btn-lg" href={links.dmg} data-track="download" data-track-label="hero"><Icon name="download" class="ic i16" />{t.hero.download}</a>
+        <a class="btn btn-lg" href={links.repo} data-track="github" data-track-label="hero">{t.hero.github}</a>
       </div>
     ) : (
       <div class="cta">
-        <a class="btn btn-primary btn-lg" href={links.repo}><Icon name="star" class="ic i16" />{t.hero.star}</a>
+        <a class="btn btn-primary btn-lg" href={links.repo} data-track="github" data-track-label="hero-star"><Icon name="star" class="ic i16" />{t.hero.star}</a>
         {links.sponsors && <a class="btn btn-lg" href={links.sponsors}><Icon name="heart" class="ic i16" />{t.hero.sponsor}</a>}
       </div>
     )

@@ -13,9 +13,9 @@ use std::time::Duration;
 
 use clap::{CommandFactory, Parser};
 use cli::{
-    AudioCmd, BaseCmd, CacheCmd, CertCmd, Cli, Cmd, DaemonCmd, DeviceCmd, Hardware, ImageCmd,
-    JobsCmd, NetworkCmd, PoolCmd, ProfileCmd, ProxyCmd, RootCmd, SdkCmd, Selection, SettingsCmd,
-    SnapshotCmd,
+    AudioCmd, BaseCmd, CacheCmd, CertCmd, Cli, Cmd, DaemonCmd, DeviceCmd, GamepadCmd, Hardware,
+    ImageCmd, JobsCmd, NetworkCmd, PoolCmd, ProfileCmd, ProxyCmd, RootCmd, SdkCmd, Selection,
+    SettingsCmd, SnapshotCmd, SyncCmd,
 };
 use jidr_client::{Client, SpawnOptions};
 use jidr_core::{ErrorCode, JidrError, JidrPaths, JidrResult, Job, JobState};
@@ -381,12 +381,131 @@ async fn before_connect(paths: &JidrPaths, cmd: &Cmd, out: Out) -> JidrResult<bo
             for p in &report.kept {
                 lines.push(format!("Kept {} (use --purge to delete devices and the private SDK).", p.display()));
             }
-            lines.push("Android Studio's SDK and devices were not touched. Remove the app itself with `brew uninstall --cask jidr` or by moving Jidr.app to the Trash.".into());
+            lines.push(if cfg!(target_os = "macos") {
+                "Android Studio's SDK and devices were not touched. Remove the app itself with `brew uninstall --cask jidr` or by moving Jidr.app to the Trash."
+            } else {
+                "Android Studio's SDK and devices were not touched. Remove the jidr binary itself by deleting the folder you unpacked it into and its link on your PATH."
+            }.into());
             lines.join("\n")
         });
         return Ok(true);
     }
     Ok(false)
+}
+
+/// `jidr sync …` (#27).
+async fn sync(c: &Client, out: Out, cmd: SyncCmd) -> JidrResult<()> {
+    match cmd {
+        SyncCmd::Start {
+            device,
+            local,
+            remote,
+            ignore,
+            no_default_ignore,
+            max_files,
+            no_wait,
+        } => {
+            let local = std::path::absolute(&local).unwrap_or(local);
+            let mut p = json!({
+                "device": device,
+                "local": local,
+                "ignore": ignore,
+                "no_default_ignore": no_default_ignore,
+            });
+            if let Some(r) = remote {
+                p["remote"] = json!(r);
+            }
+            if let Some(n) = max_files {
+                p["max_files"] = json!(n);
+            }
+            // Subscribed first, so the first copy's events can't be missed.
+            let rx = if no_wait {
+                None
+            } else {
+                Some(c.subscribe(&["file.sync."]).await?)
+            };
+            let v = c
+                .call("file.sync.start", p)
+                .await
+                .map_err(|e| missing_provider("file.sync.start", e))?;
+            let v = match rx {
+                Some(rx) => first_copy(c, out, rx, v).await?,
+                None => v,
+            };
+            out.ok(&v, output::sync);
+        }
+        SyncCmd::Stop { id } => {
+            let v = c.call("file.sync.stop", json!({ "id": id })).await?;
+            out.ok(&v, |v| {
+                format!(
+                    "Stopped syncing {} to {}:{}.",
+                    v["local"].as_str().unwrap_or("?"),
+                    v["name"].as_str().unwrap_or("?"),
+                    v["remote"].as_str().unwrap_or("?")
+                )
+            });
+        }
+        SyncCmd::List { device } => {
+            let v = c
+                .call("file.sync.list", json!({ "device": device }))
+                .await?;
+            out.ok(&v, output::syncs);
+        }
+    }
+    Ok(())
+}
+
+/// Follows a new sync's events until its first copy ends; returns the sync
+/// as it is then. A failed first copy is an error (the sync keeps running).
+async fn first_copy(
+    c: &Client,
+    out: Out,
+    mut rx: tokio::sync::broadcast::Receiver<jidr_core::rpc::Event>,
+    started: Value,
+) -> JidrResult<Value> {
+    use tokio::sync::broadcast::error::RecvError;
+    let id = started["id"].clone();
+    let files = started["files"].as_u64().unwrap_or(0);
+    loop {
+        let ev = match rx.recv().await {
+            Ok(ev) => ev,
+            Err(RecvError::Lagged(_)) => continue,
+            Err(RecvError::Closed) => return Ok(started),
+        };
+        if ev.data["id"] != id {
+            continue;
+        }
+        match ev.topic.as_str() {
+            "file.sync.progress" => out.progress_text(&format!(
+                "Copying {}/{files} files",
+                ev.data["done"].as_u64().unwrap_or(0)
+            )),
+            "file.sync.synced" => break,
+            "file.sync.error" => {
+                out.progress_done();
+                return Err(JidrError::sdk(format!(
+                    "the first copy failed: {}; the sync keeps watching (stop it with `jidr sync stop {}`)",
+                    ev.data["error"].as_str().unwrap_or("?"),
+                    id.as_str().unwrap_or("?")
+                ))
+                .with_data(json!({ "id": id })));
+            }
+            "file.sync.stopped" => {
+                out.progress_done();
+                return Err(JidrError::not_found(format!(
+                    "the sync stopped before its first copy ended ({})",
+                    ev.data["reason"].as_str().unwrap_or("?")
+                )));
+            }
+            _ => {}
+        }
+    }
+    out.progress_done();
+    let list = c.call("file.sync.list", json!({})).await?;
+    Ok(list
+        .as_array()
+        .and_then(|a| a.iter().find(|s| s["id"] == id).cloned())
+        .unwrap_or(started))
 }
 
 /// Runs a command that needs the daemon over an open connection (the CLI's
@@ -446,6 +565,7 @@ async fn dispatch(c: &Client, cmd: Cmd, out: Out) -> JidrResult<()> {
                 format!("Pushed to {}.", v["remote"].as_str().unwrap_or("?"))
             });
         }
+        Cmd::Sync { cmd } => sync(c, out, cmd).await?,
         Cmd::Flash { device, zip } => {
             let zip = std::path::absolute(&zip).unwrap_or(zip);
             let v = exec(
@@ -890,6 +1010,64 @@ async fn dispatch(c: &Client, cmd: Cmd, out: Out) -> JidrResult<()> {
                     format!("Stopping the audio on {device}.")
                 } else {
                     format!("No audio is playing on {device}.")
+                }
+            });
+        }
+        Cmd::Gamepad {
+            cmd: GamepadCmd::List,
+        } => {
+            let v = c
+                .call("input.gamepad.list", json!({}))
+                .await
+                .map_err(|e| missing_provider("input.gamepad.list", e))?;
+            out.ok(&v, output::gamepads);
+        }
+        Cmd::Gamepad {
+            cmd:
+                GamepadCmd::Connect {
+                    device,
+                    controller,
+                    no_wait,
+                },
+        } => {
+            let v = c
+                .call(
+                    "input.gamepad.connect",
+                    json!({ "device": device, "controller": controller }),
+                )
+                .await
+                .map_err(|e| missing_provider("input.gamepad.connect", e))?;
+            if no_wait {
+                out.ok(&v, |v| {
+                    format!(
+                        "Controller job {}; stop it with `jidr gamepad disconnect {device}`",
+                        v["job"].as_str().unwrap_or("?")
+                    )
+                });
+            } else {
+                let job = follow(c, out, v, None);
+                tokio::pin!(job);
+                let v = tokio::select! {
+                    r = &mut job => r?,
+                    _ = tokio::signal::ctrl_c() => {
+                        c.call("input.gamepad.disconnect", json!({ "device": device })).await?;
+                        job.await?
+                    }
+                };
+                out.ok(&v, output::gamepad);
+            }
+        }
+        Cmd::Gamepad {
+            cmd: GamepadCmd::Disconnect { device },
+        } => {
+            let v = c
+                .call("input.gamepad.disconnect", json!({ "device": device }))
+                .await?;
+            out.ok(&v, |v| {
+                if v["disconnected"] == true {
+                    format!("Disconnecting the controller from {device}.")
+                } else {
+                    format!("No controller is forwarded to {device}.")
                 }
             });
         }

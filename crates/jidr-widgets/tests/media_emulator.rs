@@ -137,7 +137,22 @@ async fn media_screenshot_and_five_minute_recording() {
     hang_up(&env).await;
 
     // Recording encodes with AVFoundation (VideoToolbox): macOS only.
+    // Elsewhere it fails with a typed error that says so (#50).
     if !cfg!(target_os = "macos") {
+        let err = env
+            .client
+            .run(
+                "media.record",
+                json!({ "device": env.device, "max_seconds": 1 }),
+                |_| {},
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, jidr_core::ErrorCode::Sdk, "{err}");
+        assert!(
+            err.message.contains("not supported on this platform"),
+            "{err}"
+        );
         env.stop().await;
         return;
     }

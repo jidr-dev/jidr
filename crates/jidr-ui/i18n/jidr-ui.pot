@@ -1329,6 +1329,42 @@ msgstr ""
 msgid "An Android ID is 16 hexadecimal digits (0–9 and a–f)."
 msgstr ""
 
+#: src/widgets/mod.rs
+msgid "The game controller was disconnected from this Mac."
+msgstr ""
+
+#: src/widgets/sync.rs
+msgid "Copying changes…"
+msgstr ""
+
+#: src/widgets/sync.rs
+msgid "Copying {} of {} files…"
+msgstr ""
+
+#: src/widgets/sync.rs
+msgid "Start the device first, then sync the folder"
+msgstr ""
+
+#: src/widgets/sync.rs
+msgid "Syncing {} to {}"
+msgstr ""
+
+#: src/widgets/sync.rs
+msgid "Choose a folder to keep copied to the device"
+msgstr ""
+
+#: src/widgets/sync.rs
+msgid "Copying {n} file…"
+msgid_plural "Copying {n} files…"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/widgets/sync.rs
+msgid "Up to date · {n} file copied"
+msgid_plural "Up to date · {n} files copied"
+msgstr[0] ""
+msgstr[1] ""
+
 #: src/wizard/mod.rs
 msgid "Found · used read-only"
 msgstr ""
@@ -1543,7 +1579,7 @@ msgstr ""
 msgid "Hibernate"
 msgstr ""
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/widgets/panels.slint
 msgid "Stop"
 msgstr ""
 
@@ -2387,6 +2423,30 @@ msgstr ""
 
 #: ui/widgets/panels.slint
 msgid "Applies the next time the device starts."
+msgstr ""
+
+#: ui/widgets/panels.slint
+msgid "Synced folders"
+msgstr ""
+
+#: ui/widgets/panels.slint
+msgid "Sync a folder…"
+msgstr ""
+
+#: ui/widgets/panels.slint
+msgid "Copies a folder on this Mac to the device and keeps it up to date, deletions included. Skips .git and node_modules."
+msgstr ""
+
+#: ui/widgets/panels.slint
+msgid "Game controller"
+msgstr ""
+
+#: ui/widgets/panels.slint
+msgid "Use this Mac's controller"
+msgstr ""
+
+#: ui/widgets/panels.slint
+msgid "Android sees an Xbox 360 controller."
 msgstr ""
 
 #: ui/widgets/panels.slint

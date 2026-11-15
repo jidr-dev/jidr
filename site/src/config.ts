@@ -44,3 +44,14 @@ export const links = {
   dmg: release.dmg,
   doc: (path: string) => `${repo}/blob/main/${path}`,
 };
+
+// Site analytics (D48): cookieless PostHog, pageviews plus a few named clicks.
+// `key` is the PostHog project's public token (phc_…). The script loads only
+// in production builds with a key, so `astro dev` sends nothing; forks set it
+// to null or to their own project. Requests go through
+// the /ingest proxy in functions/ingest/[[path]].ts, first-party on jidr.ly.
+export const analytics = {
+  key: "phc_t9bWweRSDDHoLxpLkWnxJ6a6YntCi5oWbeDAHfkkNSDE" as string | null,
+  apiHost: "/ingest",
+  uiHost: "https://us.posthog.com",
+};

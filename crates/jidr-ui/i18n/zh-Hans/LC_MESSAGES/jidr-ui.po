@@ -1327,6 +1327,40 @@ msgstr "选择 GPX 或 KML 路线"
 msgid "An Android ID is 16 hexadecimal digits (0–9 and a–f)."
 msgstr "Android ID 由 16 位十六进制数字组成（0–9 和 a–f）。"
 
+#: src/widgets/mod.rs
+msgid "The game controller was disconnected from this Mac."
+msgstr "游戏控制器已与这台 Mac 断开连接。"
+
+#: src/widgets/sync.rs
+msgid "Copying changes…"
+msgstr "正在复制更改…"
+
+#: src/widgets/sync.rs
+msgid "Copying {} of {} files…"
+msgstr "正在复制 {}/{} 个文件…"
+
+#: src/widgets/sync.rs
+msgid "Start the device first, then sync the folder"
+msgstr "请先启动设备，然后再同步文件夹"
+
+#: src/widgets/sync.rs
+msgid "Syncing {} to {}"
+msgstr "正在将 {} 同步到 {}"
+
+#: src/widgets/sync.rs
+msgid "Choose a folder to keep copied to the device"
+msgstr "选择要持续复制到设备的文件夹"
+
+#: src/widgets/sync.rs
+msgid "Copying {n} file…"
+msgid_plural "Copying {n} files…"
+msgstr[0] "正在复制 {n} 个文件…"
+
+#: src/widgets/sync.rs
+msgid "Up to date · {n} file copied"
+msgid_plural "Up to date · {n} files copied"
+msgstr[0] "已是最新 · 已复制 {n} 个文件"
+
 #: src/wizard/mod.rs
 msgid "Found · used read-only"
 msgstr "已找到 · 以只读方式使用"
@@ -1540,7 +1574,7 @@ msgstr "唤醒"
 msgid "Hibernate"
 msgstr "休眠"
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/widgets/panels.slint
 msgid "Stop"
 msgstr "停止"
 
@@ -2390,6 +2424,30 @@ msgstr "无"
 #: ui/widgets/panels.slint
 msgid "Applies the next time the device starts."
 msgstr "设备下次启动时生效。"
+
+#: ui/widgets/panels.slint
+msgid "Synced folders"
+msgstr "同步的文件夹"
+
+#: ui/widgets/panels.slint
+msgid "Sync a folder…"
+msgstr "同步文件夹…"
+
+#: ui/widgets/panels.slint
+msgid "Copies a folder on this Mac to the device and keeps it up to date, deletions included. Skips .git and node_modules."
+msgstr "将此 Mac 上的文件夹复制到设备并保持最新，包括删除操作。跳过 .git 和 node_modules。"
+
+#: ui/widgets/panels.slint
+msgid "Game controller"
+msgstr "游戏控制器"
+
+#: ui/widgets/panels.slint
+msgid "Use this Mac's controller"
+msgstr "使用这台 Mac 的游戏控制器"
+
+#: ui/widgets/panels.slint
+msgid "Android sees an Xbox 360 controller."
+msgstr "Android 会将其识别为 Xbox 360 控制器。"
 
 #: ui/widgets/panels.slint
 msgid "Latitude"

@@ -5,7 +5,7 @@
 ## Quick start
 
 ```bash
-jidr image list                                   # images for this Mac
+jidr image list                                   # images for this machine
 jidr image install 35 --accept-licenses           # API 35 google_apis
 jidr device create Phone --image 35               # rooted with adb by default (D7)
 jidr device start Phone                           # waits until booted
@@ -20,6 +20,53 @@ In CI, add `--json` and check the exit code:
 jidr --json device start Phone --timeout 300 || exit $?
 ```
 
+## Linux (headless)
+
+On x86_64 Linux, Jidr ships as the `jidr` binary alone: the CLI, the daemon and the MCP server, with no desktop app. The desktop app is macOS-only for now (D49, #50). Everything above works the same way.
+
+You need:
+
+- an x86_64 machine with glibc 2.35 or later (Ubuntu 22.04, Debian 12, Fedora 36 or newer);
+- KVM (see below);
+- about 10 GB of free disk space for the SDK and one system image.
+
+Install the tarball from the [latest release](https://github.com/jidr-dev/jidr/releases/latest):
+
+```bash
+version=X.Y.Z   # the latest release, without the v
+name=jidr-$version-x86_64-unknown-linux-gnu
+curl -fLO https://github.com/jidr-dev/jidr/releases/download/v$version/$name.tar.gz
+curl -fLO https://github.com/jidr-dev/jidr/releases/download/v$version/$name.tar.gz.sha256
+sha256sum --check $name.tar.gz.sha256
+mkdir -p ~/.local/opt ~/.local/bin
+tar -xzf $name.tar.gz -C ~/.local/opt
+ln -sf ~/.local/opt/$name/jidr ~/.local/bin/jidr
+jidr --version
+```
+
+Link `jidr` onto your `PATH`, don't copy it on its own: the daemon finds the on-device helper in `helper/` next to the binary's real path. `~/.local/bin` is on the `PATH` of most distributions; if it isn't, add it. To upgrade, unpack the new release the same way and run the `ln -sf` line again; if a daemon of the old version is still running, the next command says so and `--restart-stale` replaces it.
+
+**KVM.** The emulator needs hardware virtualization through `/dev/kvm`:
+
+```bash
+ls -l /dev/kvm                 # must exist
+sudo usermod -aG kvm $USER     # if it belongs to the kvm group and you aren't in it; log out and back in
+```
+
+If `/dev/kvm` doesn't exist, turn on Intel VT-x or AMD-V in the BIOS/UEFI settings and load the `kvm_intel` or `kvm_amd` module; in a VM or cloud instance, enable nested virtualization. `jidr sdk status` reports `"hypervisor": true` once it works, and `device start` names KVM in its error when the emulator stops for lack of it.
+
+**SDK and images.** Jidr downloads Google's emulator, platform tools and system images itself, after you accept their license, into `~/.local/share/Jidr/sdk` (D3, D8). If Android Studio's SDK is at `~/Android/Sdk` (or `ANDROID_HOME`), Jidr reads it and never changes it. On an x86_64 host, `--image 35` means the `x86_64` image; `x86_64` images from API 30 on run most arm64-only apps through Google's ARM translation. Root works the same as on the Mac, Full root included.
+
+```bash
+jidr image install 35 --accept-licenses
+jidr device create Phone --image 35
+jidr device start Phone
+```
+
+**What's different from the Mac.** Devices render in software (`-gpu swiftshader_indirect`), so they need no GL drivers. Screen recording of a device (`media.record`) isn't available yet: it fails with exit code 6 and says so. Screenshots work, and so does `phone record` for USB phones. Logs are in `~/.local/share/Jidr/logs`.
+
+**MCP.** Add Jidr to Claude Code with `claude mcp add jidr -- jidr mcp` (or the full path, `~/.local/bin/jidr`, if Claude Code doesn't see your `PATH`). The `.mcpb` bundle for Claude Desktop is macOS-only. See [mcp.md](mcp.md).
+
 ## Commands
 
 | Command | What it does |
@@ -33,6 +80,7 @@ jidr --json device start Phone --timeout 300 || exit $?
 | `device reset <name> --yes`, `device delete <names…> \| --all --yes` | Destructive: wipe data, or delete. Without `--yes` they ask on a terminal and refuse otherwise. |
 | `install <name> <apk> [--no-replace] [--grant] [--downgrade]` | Install an APK. A signature mismatch fails with `details.signature_mismatch = true`. |
 | `push <name> <local> [remote]`, `pull <name> <remote> <local>` | Copy files (push defaults to `/sdcard/Download/`). |
+| `sync start <name> <local> [remote] [--ignore NAME…] [--no-default-ignore] [--max-files N] [--no-wait]`, `sync stop <id>`, `sync list [name]` | Keep a folder on this Mac copied to a running device, one way (default destination `/sdcard/Download/<folder name>`). See [Synced folders](#synced-folders). |
 | `logcat <name> [-n N] [--filter spec…] [-f] [--clear]` | Dump, follow (`-f`) or clear the log. |
 | `flash <name> <zip>` | Flash a zip (`file.flash`, ADR-0004). A Magisk or Zygisk module installs on a running Full-root device, which reboots; Jidr then checks that Magisk loaded it. Recovery (TWRP, GApps), Riru and OTA/factory image zips are refused with exit 2 and the reason; a module zip with `module.prop` in a subfolder or an invalid id is refused with the fix. A module on a device without Full root, and any other zip, is copied to `/sdcard/Download`. See [root.md](root.md#flashable-zips). |
 | `phone list`, `phone details <phone>` | USB phones adb sees (USB debugging on, #92): serial, state (`ready`, `unauthorized`, `offline`, `no_permissions`…), model, Android version and battery; `details` adds the screen size. A phone that isn't ready gets a hint (unlock it and tap Allow on the USB debugging prompt…). See [Phones](#phones). |
@@ -57,6 +105,7 @@ jidr --json device start Phone --timeout 300 || exit $?
 | `network dns <name> [normal\|slow\|fail] [--delay-ms MS]` | Bad DNS on Wi-Fi and mobile data: `slow` delays each DNS query (`--delay-ms`, 1–30000, default 3000, Genymotion's "bad DNS" profile; `--delay-ms` alone means `slow`), `fail` drops them so lookups time out, `normal` undoes it; without a mode, show it. Needs root mode `adb` or `magisk` and API 31 or later (API 30's kernel has no netem or prio qdisc: exit 2). Kept across cold boots the same way as the loss, and independent of it. |
 | `identity <name> [--android-id id]` | Without `--android-id`, show the device's Android ID and IMEI (`identity.get`, no root needed). `--android-id` (16 hex digits) gives that ID to every installed app (its SSAID) and to `settings get secure android_id`, restarting the Android framework (`identity.set`, a job, through the on-device helper; needs root mode `adb` or `magisk`). It's kept across cold boots. The IMEI is read only. See docs/root.md. |
 | `audio inject <name> <file> [--loop] [--rate Hz [--channels 1\|2]] [--no-wait]`, `audio stop <name>` | Play a WAV as the device's microphone (widgets provider, `audio.*`); `--rate` reads the file as headerless 16-bit PCM. See [Microphone](#microphone). |
+| `gamepad list`, `gamepad connect <name> [--controller ID] [--no-wait]`, `gamepad disconnect <name>` | Drive a running device with a game controller connected to this Mac (widgets provider, `input.gamepad.*`). See [Game controller](#game-controller). |
 | `jobs list [--all]`, `jobs wait <job>`, `jobs cancel <job>` | Long-running operations. |
 | `commands` | Every protocol command (what the GUI and MCP see). |
 | `call <method> [params-json]` | Call any protocol command directly, e.g. `jidr call device.start '{"device":"Phone","cold_boot":true}'`. Follows jobs. |
@@ -132,6 +181,23 @@ jidr cert remove Phone a4ac454c.0            # or --all
 
 `install` restarts the device and fails with exit code 7 (root failed) unless the certificate ends up in the store apps read. How it works on each Android version is in docs/root.md.
 
+## Synced folders
+
+Keep a folder on this Mac copied to a running device while you work on it, e.g. a web app's build output or test fixtures (#27):
+
+```bash
+jidr sync start Phone ~/code/site/dist                    # → /sdcard/Download/dist, waits for the first copy
+jidr sync start Phone ./fixtures /sdcard/Android/data/com.example/files/fixtures --ignore build --no-wait
+jidr sync list
+jidr sync stop 4b0c1a2e                                   # the id, or its first characters
+```
+
+The first copy sends the whole folder; after that Jidr watches it and sends each batch of changes once the folder has been quiet for 300 ms (every 2 s at most while it keeps changing). Saving a file pushes it; deleting or renaming a file or folder on the Mac deletes the old path on the device too. Files that exist only on the device are left alone. The sync is one way: changes made on the device aren't copied back and are overwritten when the Mac's file changes.
+
+To keep a mistake from copying a huge tree, `.git`, `node_modules` and `.DS_Store` are skipped at any depth (`--no-default-ignore` syncs them, `--ignore NAME` skips more exact names), symlinks aren't followed, and a folder with more than 10000 files after skips exits 2 with the limit (`--max-files N` raises it). One sync per device folder: syncing into a folder that's already synced, or one inside it, exits 2.
+
+A sync lasts as long as its device runs. Stopping, hibernating or deleting the device (or a crash) ends it, and it doesn't resume at the next start or after the daemon restarts: run `sync start` again; its first copy sends the whole folder again. Under the hood these are the `file.sync.*` protocol commands, with `file.sync.*` events for progress and errors.
+
 ## Microphone
 
 Play an audio file into a running device's microphone, for voice input, speech recognition or call tests:
@@ -144,6 +210,19 @@ jidr audio inject Phone capture.pcm --rate 16000      # headerless 16-bit little
 ```
 
 Jidr streams the file over the emulator's gRPC `injectAudio`. WAV files can be 8- or 16-bit PCM (sent as they are), or 24/32-bit PCM or 32/64-bit float (converted to 16-bit), mono or stereo, at 8–48 kHz. Other files, other rates and more channels exit 2; convert them first, e.g. `afconvert -f WAVE -d LEI16@44100 in.m4a out.wav`. The audio plays as the device reads its microphone: start the app's recording before or after, and if nothing records, playback waits (the progress stops) until something does or you stop it. `--loop` repeats until `audio stop`; `jobs cancel` also ends it. One file plays at a time per device; a second `audio inject` exits 4. The Mac's own microphone isn't routed to the device (yet).
+
+## Game controller
+
+Play a game on the device with a controller connected to this Mac (USB or Bluetooth: Xbox, PlayStation, Switch Pro and others macOS sees):
+
+```bash
+jidr gamepad list                      # the controllers on this Mac, with their ids
+jidr gamepad connect Phone             # the first controller drives Phone until Ctrl-C
+jidr gamepad connect Phone --controller 1 --no-wait
+jidr gamepad disconnect Phone
+```
+
+The device sees a USB Xbox 360 controller, whatever you hold: Android loads its stock key layout for it, and games read the left and right sticks, both triggers, the D-pad, A/B/X/Y, the bumpers, Back, Start, Guide and the stick clicks. Jidr adds that controller with Android's own `hid` command over `adb shell`, which needs no root, and replays every button and stick change into it. Disconnecting (or Ctrl-C) removes it from the device. One controller per device; a second `gamepad connect` exits 4. The job also ends when the controller is switched off or unplugged, or the device stops. Rumble isn't sent back to the controller. Reading controllers works on macOS only for now.
 
 ## Phones
 

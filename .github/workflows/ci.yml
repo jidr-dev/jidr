@@ -39,6 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      release: ${{ steps.filter.outputs.release }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -51,6 +52,11 @@ jobs:
               - '!docs/**'
               - '!site/**'
               - '!**/*.md'
+            release:
+              - 'xtask/src/release.rs'
+              - 'xtask/src/helper.rs'
+              - 'packaging/linux/**'
+              - '.github/workflows/release.yml'
 
   # macOS compile + lint gate for macOS-only code (VideoToolbox, Slint's
   # macOS backend, bundling). Hosted macOS can't boot the emulator and queues
@@ -70,6 +76,26 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - run: cargo clippy --workspace --all-targets -- -D warnings
 
+  # The check job already builds and tests `jidr` on Linux. This one runs the
+  # release packaging (`cargo xtask release` on Linux: release build, x86_64
+  # helper, tarball, scan) when that code changes, so a broken tarball shows
+  # up on the pull request rather than on release day (#50).
+  linux-tarball:
+    name: Linux x86_64 tarball
+    needs: changes
+    if: needs.changes.outputs.release == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust (from rust-toolchain.toml)
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: cargo xtask release --scan --out dist
+      - run: packaging/linux/smoke.sh dist
+
   emulator:
     # Emulator integration tests on Linux KVM with x86_64 images (D28).
     # The arm64 run happens on an Apple Silicon Mac via `cargo xtask e2e-mac` before release.
@@ -84,10 +110,11 @@ jobs:
       matrix:
         api: [30, 33, 35]
         # Every emulator test boots its own device, so the tests are split
-        # across four jobs per API level, balanced by measured run times
-        # (about 8 minutes each). `rest` takes every binary the other shards
-        # don't name, so a new `*_emulator` binary always runs; keep its
-        # exclusion list in sync and move binaries out when it gets slow.
+        # across five jobs per API level, balanced by measured run times
+        # (each under about 15 minutes of tests). `rest` takes every binary
+        # the other shards don't name, so a new `*_emulator` binary always
+        # runs; keep its exclusion list in sync and move binaries out when it
+        # gets slow.
         shard:
           - name: daemon
             filter: binary(~pool_emulator) | binary(~budget_emulator) | binary(~hibernate_emulator) | binary(~resilience_emulator)
@@ -95,12 +122,15 @@ jobs:
             filter: binary(~props_emulator) | binary(~magisk_emulator) | binary(~adb_emulator)
           - name: cacert, mcp, ui
             filter: binary(~cacert_emulator) | binary(agent_tasks) | binary(~player_emulator) | binary(~media_emulator)
+          - name: root, helper
+            filter: binary(~magisk_base_emulator) | binary(~module_emulator) | binary(~writable_emulator) | binary(~helper_emulator)
           - name: rest
             filter: >-
               (binary(~_emulator) | binary(agent_tasks))
               - (binary(~pool_emulator) | binary(~budget_emulator) | binary(~hibernate_emulator) | binary(~resilience_emulator)
               | binary(~props_emulator) | binary(~magisk_emulator) | binary(~adb_emulator)
-              | binary(~cacert_emulator) | binary(agent_tasks) | binary(~player_emulator) | binary(~media_emulator))
+              | binary(~cacert_emulator) | binary(agent_tasks) | binary(~player_emulator) | binary(~media_emulator)
+              | binary(~magisk_base_emulator) | binary(~module_emulator) | binary(~writable_emulator) | binary(~helper_emulator))
     steps:
       - uses: actions/checkout@v4
       - name: Enable KVM

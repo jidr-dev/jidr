@@ -9,9 +9,11 @@ use uuid::Uuid;
 
 use crate::WidgetsVm;
 use crate::app::{Ctx, toast};
+use crate::i18n::tr;
 
 pub mod gps;
 pub mod identity;
+pub mod sync;
 
 pub const PROFILES: [&str; 7] = ["full", "lte", "hsdpa", "umts", "edge", "gprs", "gsm"];
 pub const SCALES: [f32; 7] = [0.0, 0.5, 1.0, 1.5, 2.0, 5.0, 10.0];
@@ -232,6 +234,9 @@ pub fn merge(vm: &mut WidgetsVm, method: &str, v: &Value) {
             vm.camera_back = CAMERAS.iter().position(|c| *c == back).unwrap_or(0) as i32;
         }
         "identity.get" => identity::merge(vm, v),
+        "input.gamepad.get" => {
+            vm.gamepad = v.get("connected").and_then(Value::as_bool).unwrap_or(false);
+        }
         "clipboard.get" => {
             vm.clipboard = v
                 .get("text")
@@ -283,8 +288,20 @@ pub fn load(ctx: &Rc<Ctx>) {
         "camera.get",
         "gps.get",
         "identity.get",
+        "input.gamepad.get",
     ] {
         call_and_merge(ctx, id, m, json!({}));
+    }
+    sync::load(ctx, id);
+}
+
+/// A daemon event the panels follow (UI thread): `file.sync.*` for the
+/// active device's synced folders.
+pub fn on_event(ctx: &Rc<Ctx>, ev: &jidr_core::rpc::Event) {
+    if let Some(id) = active(ctx)
+        && ev.topic.starts_with("file.sync.")
+    {
+        sync::on_event(ctx, id, &ev.topic, &ev.data);
     }
 }
 
@@ -293,7 +310,11 @@ pub fn wire(ctx: &Rc<Ctx>) {
     let c = ctx.clone();
     ctx.app.on_widget_action(move |action, value| {
         let Some(id) = active(&c) else { return };
-        if gps_action(&c, id, &action, &value) || identity::action(&c, id, &action, &value) {
+        if gps_action(&c, id, &action, &value)
+            || identity::action(&c, id, &action, &value)
+            || gamepad_action(&c, id, &action, &value)
+            || sync::action(&c, id, &action, &value)
+        {
             return;
         }
         let mut vm = c.app.get_widgets();
@@ -311,6 +332,43 @@ pub fn wire(ctx: &Rc<Ctx>) {
             gps::map_click(&c, id, x, y);
         }
     });
+}
+
+/// The game controller toggle (#23): on runs `input.gamepad.connect`, a
+/// job that lasts until the toggle goes off, the controller goes away or it
+/// fails; then the panel reloads. True when handled.
+fn gamepad_action(ctx: &Rc<Ctx>, id: Uuid, action: &str, value: &str) -> bool {
+    if action != "input.gamepad" {
+        return false;
+    }
+    let on = value == "true";
+    let mut vm = ctx.app.get_widgets();
+    vm.gamepad = on;
+    ctx.app.set_widgets(vm);
+    if !on {
+        ctx.bridge
+            .call("input.gamepad.disconnect", json!({ "device": id }), |_| {});
+        return true;
+    }
+    let token = crate::app::defer(move |r: jidr_core::JidrResult<Value>| {
+        let Some(c) = crate::app::ctx() else { return };
+        match r {
+            Ok(v) if v["ended"] == "unplugged" => toast(
+                &c.app.as_weak(),
+                tr!("The game controller was disconnected from this Mac."),
+            ),
+            Err(e) if !jidr_core::cancel::is_cancelled(&e) => toast(&c.app.as_weak(), e.message),
+            _ => {}
+        }
+        load(&c);
+    });
+    ctx.bridge.run(
+        "input.gamepad.connect",
+        json!({ "device": id }),
+        |_| {},
+        move |r| crate::app::fire(token, r),
+    );
+    true
 }
 
 /// GPS panel actions; true when handled.
@@ -460,5 +518,9 @@ mod tests {
             (vm.battery_level, vm.charging, vm.show_taps, vm.animation),
             (42, true, true, 1)
         );
+        merge(&mut vm, "input.gamepad.get", &json!({"connected": true}));
+        assert!(vm.gamepad);
+        merge(&mut vm, "input.gamepad.get", &json!({}));
+        assert!(!vm.gamepad);
     }
 }

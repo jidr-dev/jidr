@@ -16,7 +16,7 @@ const t = strings(Astro.currentLocale);
 <div class="cli">
   <div class="ch">
     <span>{title}</span><span class="grow"></span>
-    <button class="btn btn-tertiary btn-sm" type="button" data-copy data-done={t.copy.done} aria-live="polite" hidden>{t.copy.label}</button>
+    <button class="btn btn-tertiary btn-sm" type="button" data-copy data-track="copy" data-track-label={title} data-done={t.copy.done} aria-live="polite" hidden>{t.copy.label}</button>
   </div>
   <pre lang="en">{lines.map((line, i) => <>{i > 0 && "\n"}<span class="pr">$ </span>{line}</>)}</pre>
 </div>
