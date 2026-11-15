@@ -1338,6 +1338,10 @@ msgstr "La latitud y la longitud deben ser números"
 msgid "Choose a GPX or KML route"
 msgstr "Elige una ruta GPX o KML"
 
+#: src/widgets/identity.rs
+msgid "An Android ID is 16 hexadecimal digits (0–9 and a–f)."
+msgstr "Un Android ID tiene 16 dígitos hexadecimales (0–9 y a–f)."
+
 #: src/wizard/mod.rs
 msgid "Found · used read-only"
 msgstr "Encontrado · solo lectura"
@@ -2264,6 +2268,38 @@ msgstr "Texto del SMS"
 #: ui/widgets/panels.slint
 msgid "Send SMS"
 msgstr "Enviar SMS"
+
+#: ui/widgets/panels.slint
+msgid "Identifiers"
+msgstr "Identificadores"
+
+#: ui/widgets/panels.slint
+msgid "Android ID"
+msgstr "Android ID"
+
+#: ui/widgets/panels.slint
+msgid "16 hex digits"
+msgstr "16 dígitos hexadecimales"
+
+#: ui/widgets/panels.slint
+msgid "Random"
+msgstr "Aleatorio"
+
+#: ui/widgets/panels.slint
+msgid "Apply"
+msgstr "Aplicar"
+
+#: ui/widgets/panels.slint
+msgid "IMEI"
+msgstr "IMEI"
+
+#: ui/widgets/panels.slint
+msgid "Applying… Android restarts, and the app you're testing with it."
+msgstr "Aplicando… Android se reinicia, y con él la app que estás probando."
+
+#: ui/widgets/panels.slint
+msgid "Needs Shell or Full root. Apps installed later get their own ID. The emulator's IMEI can't be changed."
+msgstr "Requiere root de shell o root completo. Las apps instaladas después reciben su propio ID. El IMEI del emulador no se puede cambiar."
 
 #: ui/widgets/panels.slint
 msgid "Android controls"

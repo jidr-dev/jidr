@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 use crate::WidgetsVm;
 use crate::app::{Ctx, toast};
+use crate::i18n::tr;
 
 /// 16 hex digits from `seed`'s random bits.
 pub fn random_android_id(seed: Uuid) -> String {
@@ -32,7 +33,7 @@ pub fn merge(vm: &mut WidgetsVm, v: &Value) {
 pub fn set_params(vm: &WidgetsVm) -> Result<Value, String> {
     check_android_id(vm.android_id.trim())
         .map(|id| json!({ "android_id": id }))
-        .map_err(|e| e.message)
+        .map_err(|_| tr!("An Android ID is 16 hexadecimal digits (0–9 and a–f)."))
 }
 
 /// Identifiers actions; true when handled.

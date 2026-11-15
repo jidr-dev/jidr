@@ -1381,6 +1381,10 @@ msgstr "يجب أن يكون خطا العرض والطول رقمين"
 msgid "Choose a GPX or KML route"
 msgstr "اختر مسار GPX أو KML"
 
+#: src/widgets/identity.rs
+msgid "An Android ID is 16 hexadecimal digits (0–9 and a–f)."
+msgstr "يتكوّن Android ID من 16 رقمًا ستّ عشريًا: من 0 إلى 9 ومن a إلى f."
+
 #: src/wizard/mod.rs
 msgid "Found · used read-only"
 msgstr "موجود · يُستخدم للقراءة فقط"
@@ -2334,6 +2338,38 @@ msgstr "نص الرسالة القصيرة"
 #: ui/widgets/panels.slint
 msgid "Send SMS"
 msgstr "إرسال رسالة قصيرة"
+
+#: ui/widgets/panels.slint
+msgid "Identifiers"
+msgstr "المعرّفات"
+
+#: ui/widgets/panels.slint
+msgid "Android ID"
+msgstr "Android ID"
+
+#: ui/widgets/panels.slint
+msgid "16 hex digits"
+msgstr "16 رقمًا ستّ عشريًا"
+
+#: ui/widgets/panels.slint
+msgid "Random"
+msgstr "عشوائي"
+
+#: ui/widgets/panels.slint
+msgid "Apply"
+msgstr "تطبيق"
+
+#: ui/widgets/panels.slint
+msgid "IMEI"
+msgstr "IMEI"
+
+#: ui/widgets/panels.slint
+msgid "Applying… Android restarts, and the app you're testing with it."
+msgstr "جارٍ التطبيق… يُعاد تشغيل Android ومعه التطبيق الذي تختبره."
+
+#: ui/widgets/panels.slint
+msgid "Needs Shell or Full root. Apps installed later get their own ID. The emulator's IMEI can't be changed."
+msgstr "يتطلب جذر Shell أو جذرًا كاملًا. التطبيقات المثبّتة لاحقًا تحصل على معرّفها الخاص. لا يمكن تغيير IMEI المحاكي."
 
 #: ui/widgets/panels.slint
 msgid "Android controls"
