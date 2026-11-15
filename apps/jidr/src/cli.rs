@@ -145,6 +145,11 @@ pub enum Cmd {
         #[command(subcommand)]
         cmd: AudioCmd,
     },
+    /// Drive a device with a game controller connected to this Mac.
+    Gamepad {
+        #[command(subcommand)]
+        cmd: GamepadCmd,
+    },
     /// The download cache (Magisk APKs and other pinned files, by SHA-256).
     Cache {
         #[command(subcommand)]
@@ -753,6 +758,25 @@ pub enum AudioCmd {
 }
 
 #[derive(Debug, Subcommand)]
+pub enum GamepadCmd {
+    /// The game controllers connected to this computer.
+    List,
+    /// Forward a controller to a running device, which sees an Xbox 360
+    /// controller; runs until Ctrl-C or `jidr gamepad disconnect`.
+    Connect {
+        device: String,
+        /// The controller's id from `jidr gamepad list` (default: the first).
+        #[arg(long)]
+        controller: Option<usize>,
+        /// Print the job id and return; stop it with `jidr gamepad disconnect`.
+        #[arg(long)]
+        no_wait: bool,
+    },
+    /// Stop forwarding the controller.
+    Disconnect { device: String },
+}
+
+#[derive(Debug, Subcommand)]
 pub enum JobsCmd {
     /// Running jobs.
     List {
@@ -833,6 +857,30 @@ mod tests {
                 .is_err()
         );
         assert!(Cli::try_parse_from(["jidr", "audio", "stop", "P"]).is_ok());
+    }
+
+    #[test]
+    fn gamepad_flags() {
+        let cli = Cli::try_parse_from(["jidr", "gamepad", "connect", "Phone", "--controller", "2"])
+            .unwrap();
+        let Cmd::Gamepad {
+            cmd:
+                GamepadCmd::Connect {
+                    device,
+                    controller,
+                    no_wait,
+                },
+        } = cli.cmd
+        else {
+            panic!("not gamepad connect");
+        };
+        assert_eq!(
+            (device.as_str(), controller, no_wait),
+            ("Phone", Some(2), false)
+        );
+        assert!(Cli::try_parse_from(["jidr", "gamepad", "list"]).is_ok());
+        assert!(Cli::try_parse_from(["jidr", "gamepad", "disconnect", "P"]).is_ok());
+        assert!(Cli::try_parse_from(["jidr", "gamepad", "connect"]).is_err());
     }
 
     #[test]

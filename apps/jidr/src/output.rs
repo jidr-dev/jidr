@@ -434,6 +434,42 @@ pub fn certs(v: &Value) -> String {
     )
 }
 
+/// An `input.gamepad.list` result.
+pub fn gamepads(v: &Value) -> String {
+    let all = v["controllers"].as_array().cloned().unwrap_or_default();
+    if all.is_empty() {
+        return "No game controller is connected to this computer.".into();
+    }
+    all.iter()
+        .map(|c| {
+            let ids = match (c["vendor"].as_u64(), c["product"].as_u64()) {
+                (Some(v), Some(p)) => format!("  {v:04x}:{p:04x}"),
+                _ => String::new(),
+            };
+            format!(
+                "{}  {}{ids}",
+                c["id"].as_u64().unwrap_or(0),
+                c["name"].as_str().unwrap_or("?")
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// An `input.gamepad.connect` result.
+pub fn gamepad(v: &Value) -> String {
+    let name = v["controller"]["name"].as_str().unwrap_or("The controller");
+    let why = match v["ended"].as_str() {
+        Some("unplugged") => "it was disconnected from this computer",
+        Some("device_stopped") => "the device stopped",
+        _ => "you disconnected it",
+    };
+    format!(
+        "{name} stopped driving the device: {why} ({} reports sent).",
+        v["reports"].as_u64().unwrap_or(0)
+    )
+}
+
 /// An `audio.inject` result.
 pub fn audio(v: &Value) -> String {
     let secs = |k: &str| v[k].as_f64().unwrap_or(0.0);
@@ -590,6 +626,24 @@ mod tests {
         assert_eq!(
             audio(&v),
             "Stopped after 7.0 s of 3.0 s into the microphone (16000 Hz, 1 ch, s16le, converted from float32, 2 passes)."
+        );
+    }
+
+    #[test]
+    fn gamepad_results() {
+        let v = json!({ "controllers": [
+            { "id": 0, "name": "Xbox Wireless Controller", "vendor": 1118, "product": 2835 },
+            { "id": 3, "name": "Pad" }
+        ] });
+        assert_eq!(
+            gamepads(&v),
+            "0  Xbox Wireless Controller  045e:0b13\n3  Pad"
+        );
+        assert!(gamepads(&json!({ "controllers": [] })).starts_with("No game controller"));
+        let v = json!({ "controller": { "id": 0, "name": "Pad" }, "reports": 12, "ended": "unplugged" });
+        assert_eq!(
+            gamepad(&v),
+            "Pad stopped driving the device: it was disconnected from this computer (12 reports sent)."
         );
     }
 
