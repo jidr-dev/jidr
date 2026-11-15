@@ -12,6 +12,7 @@ publish.workspace = true
 [dependencies]
 jidr-core.workspace = true
 jidr-client.workspace = true
+jidr-adb.workspace = true
 # The Android ID check (Apache-2.0, without its `host` feature).
 jidr-helper.workspace = true
 jidr-proto.workspace = true
@@ -26,10 +27,12 @@ chrono.workspace = true
 png.workspace = true
 tracing.workspace = true
 dirs.workspace = true
+sys-locale.workspace = true
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2", "system-proxy"] }
 
 [build-dependencies]
 slint-build = "1.18.1"
+rspolib.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
