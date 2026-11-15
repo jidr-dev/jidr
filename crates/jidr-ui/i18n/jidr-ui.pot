@@ -1893,6 +1893,18 @@ msgstr ""
 msgid "Hibernates running devices left idle that long, freeing their RAM. Devices can override it."
 msgstr ""
 
+#: ui/settings.slint
+msgid "Recording"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Include audio"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Screen recordings also capture what the device plays."
+msgstr ""
+
 #: ui/settings.slint ui/shell.slint
 msgid "Android SDK"
 msgstr ""

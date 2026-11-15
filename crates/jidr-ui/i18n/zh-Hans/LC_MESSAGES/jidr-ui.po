@@ -1893,6 +1893,18 @@ msgstr "只需几秒即可启动，无需完整启动。每台设备都会占用
 msgid "Hibernates running devices left idle that long, freeing their RAM. Devices can override it."
 msgstr "运行中的设备闲置达到该时长后将休眠，以释放内存。可针对单台设备覆盖此设置。"
 
+#: ui/settings.slint
+msgid "Recording"
+msgstr "录制"
+
+#: ui/settings.slint
+msgid "Include audio"
+msgstr "包含音频"
+
+#: ui/settings.slint
+msgid "Screen recordings also capture what the device plays."
+msgstr "屏幕录制也会录下设备播放的声音。"
+
 #: ui/settings.slint ui/shell.slint
 msgid "Android SDK"
 msgstr "Android SDK"

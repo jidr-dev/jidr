@@ -1910,6 +1910,18 @@ msgstr "Inicia em segundos em vez de uma inicialização completa. Usa disco em 
 msgid "Hibernates running devices left idle that long, freeing their RAM. Devices can override it."
 msgstr "Hiberna dispositivos em execução inativos por esse tempo, liberando a RAM deles. Cada dispositivo pode ter o próprio ajuste."
 
+#: ui/settings.slint
+msgid "Recording"
+msgstr "Gravação"
+
+#: ui/settings.slint
+msgid "Include audio"
+msgstr "Incluir áudio"
+
+#: ui/settings.slint
+msgid "Screen recordings also capture what the device plays."
+msgstr "As gravações de tela também capturam o que o dispositivo reproduz."
+
 #: ui/settings.slint ui/shell.slint
 msgid "Android SDK"
 msgstr "Android SDK"

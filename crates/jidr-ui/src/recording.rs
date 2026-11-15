@@ -145,9 +145,10 @@ pub fn toggle(ctx: &Rc<Ctx>, device: Uuid) {
             .set(device, Some(tr!("Recording {}", "0:00")))
     });
     show(ctx, Some(device));
+    let audio = ctx.prefs.borrow().record_audio;
     ctx.bridge.run(
         "media.record",
-        json!({ "device": device }),
+        json!({ "device": device, "audio": audio }),
         move |job| update(device, Some(clock_text(&job.message))),
         move |r| {
             update(device, None);
