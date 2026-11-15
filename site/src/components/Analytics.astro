@@ -1,0 +1,49 @@
+---
+// Site analytics (D48): cookieless PostHog, rendered only when
+// `analytics.key` is set. Nothing is stored in the browser (cookieless_mode
+// "always"), Do Not Track is respected, and there is no autocapture, session
+// replay, surveys or feature flags: pageviews, page leaves and the clicks on
+// elements marked `data-track`. The SDK loads after the page is idle.
+import { analytics } from "../config";
+---
+
+<meta name="jidr-analytics" content={analytics.key} data-api-host={analytics.apiHost} data-ui-host={analytics.uiHost} />
+
+<script>
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="jidr-analytics"]');
+
+  if (meta?.content) {
+    const key = meta.content;
+    let loading: Promise<typeof import("posthog-js/dist/module.slim.no-external").posthog> | undefined;
+    const load = () =>
+      (loading ??= import("posthog-js/dist/module.slim.no-external").then(({ posthog }) => {
+        posthog.init(key, {
+          api_host: meta.dataset.apiHost,
+          ui_host: meta.dataset.uiHost,
+          cookieless_mode: "always",
+          respect_dnt: true,
+          autocapture: false,
+          capture_pageview: true,
+          capture_pageleave: true,
+          disable_session_recording: true,
+          disable_surveys: true,
+          advanced_disable_flags: true,
+          person_profiles: "never",
+        });
+        return posthog;
+      }));
+    if ("requestIdleCallback" in window) requestIdleCallback(() => load(), { timeout: 3000 });
+    else setTimeout(load, 1500);
+
+    // One listener for every tracked element: `data-track` names the event
+    // ("download" → download_clicked) and `data-track-label` says which one.
+    // A click before the SDK is idle-loaded loads it now; sendBeacon lets the
+    // event out when the click navigates away.
+    document.addEventListener("click", (e) => {
+      const el = (e.target as Element | null)?.closest<HTMLElement>("[data-track]");
+      if (!el?.dataset.track) return;
+      const props = { label: el.dataset.trackLabel, href: el instanceof HTMLAnchorElement ? el.href : undefined };
+      void load().then((posthog) => posthog.capture(`${el.dataset.track}_clicked`, props, { transport: "sendBeacon" }));
+    });
+  }
+</script>
