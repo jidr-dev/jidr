@@ -22,8 +22,9 @@ use std::time::{Duration, Instant};
 use jidr_backend::AospBackend;
 use jidr_backend::testing::{AvdGuard, kill_orphans, unique_avd};
 use jidr_core::provider::{CallCtx, DaemonContext};
-use jidr_core::{ConnectInfo, JidrPaths};
+use jidr_core::{ConnectInfo, JidrPaths, JidrResult};
 use jidr_daemon::{Daemon, DaemonConfig};
+use jidr_helper::netem::NO_ROUTE;
 use serde_json::{Value, json};
 
 fn test_sdk() -> PathBuf {
@@ -57,6 +58,48 @@ async fn call(daemon: &Arc<Daemon>, ctx: &CallCtx, method: &str, params: Value) 
     p.call(ctx, method, params)
         .await
         .unwrap_or_else(|e| panic!("{method}: {e}"))
+}
+
+/// How long a shaping call waits for a default route.
+const NETWORK_WAIT: Duration = Duration::from_secs(120);
+
+/// `network.shaping.*`, waiting while the guest has no default route:
+/// Wi-Fi comes up some seconds after a boot, and can drop for a moment
+/// (main's CI failed in a `get` after the helper restart, 2026-11).
+async fn shaping_result(
+    daemon: &Arc<Daemon>,
+    ctx: &CallCtx,
+    method: &str,
+    params: Value,
+) -> JidrResult<Value> {
+    let (p, _) = daemon.registry().get(method).unwrap();
+    let deadline = Instant::now() + NETWORK_WAIT;
+    loop {
+        match p.call(ctx, method, params.clone()).await {
+            Err(e) if e.message.contains(NO_ROUTE) && Instant::now() < deadline => {
+                println!("{method}: no network yet: {e}");
+                tokio::time::sleep(Duration::from_secs(3)).await;
+            }
+            r => return r,
+        }
+    }
+}
+
+/// [`shaping_result`] that must succeed.
+async fn shaping(daemon: &Arc<Daemon>, ctx: &CallCtx, method: &str, params: Value) -> Value {
+    shaping_result(daemon, ctx, method, params)
+        .await
+        .unwrap_or_else(|e| panic!("{method}: {e}"))
+}
+
+/// The interface names in a shaping result.
+fn names(v: &Value) -> Vec<String> {
+    v["interfaces"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| i["name"].as_str().unwrap().to_string())
+        .collect()
 }
 
 fn shell(info: &ConnectInfo, cmd: &str) -> String {
@@ -163,55 +206,41 @@ async fn helper_starts_as_root_and_drops_packets() {
     );
 
     // 2. Wait for a network with a default route (Wi-Fi or mobile data).
-    let deadline = Instant::now() + Duration::from_secs(120);
-    let get = loop {
-        let (p, _) = daemon.registry().get("network.shaping.get").unwrap();
-        match p
-            .call(&ctx, "network.shaping.get", json!({ "device": name }))
-            .await
-        {
-            Ok(v) => break v,
-            Err(e) if Instant::now() < deadline => {
-                println!("no network yet: {e}");
-                tokio::time::sleep(Duration::from_secs(3)).await;
-            }
-            Err(e) => panic!("network.shaping.get: {e}"),
-        }
-    };
+    let get = shaping(
+        &daemon,
+        &ctx,
+        "network.shaping.get",
+        json!({ "device": name }),
+    )
+    .await;
     println!("before: {get}");
-    let ifaces: Vec<String> = get["interfaces"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|i| i["name"].as_str().unwrap().to_string())
-        .collect();
+    let ifaces = names(&get);
     assert!(!ifaces.is_empty());
     assert_eq!(get["loss_pct"], 0.0, "{get}");
 
     // API 30's emulator kernel has no netem (D44): the helper says so as a
     // usage error instead of failing, and changes nothing.
     if test_api() < 31 {
-        let (p, _) = daemon.registry().get("network.shaping.set").unwrap();
-        let e = p
-            .call(
-                &ctx,
-                "network.shaping.set",
-                json!({ "device": name, "loss_pct": 50 }),
-            )
-            .await
-            .unwrap_err();
+        let e = shaping_result(
+            &daemon,
+            &ctx,
+            "network.shaping.set",
+            json!({ "device": name, "loss_pct": 50 }),
+        )
+        .await
+        .unwrap_err();
         assert_eq!(e.code, jidr_core::ErrorCode::Usage, "{e}");
         assert!(e.message.contains("netem"), "{e}");
         // Bad DNS needs the prio qdisc and netem, which API 30's kernel
         // lacks too: refused the same way (CI, 2026-11-14: "no prio qdisc").
-        let e = p
-            .call(
-                &ctx,
-                "network.shaping.set",
-                json!({ "device": name, "dns": "fail" }),
-            )
-            .await
-            .unwrap_err();
+        let e = shaping_result(
+            &daemon,
+            &ctx,
+            "network.shaping.set",
+            json!({ "device": name, "dns": "fail" }),
+        )
+        .await
+        .unwrap_err();
         assert_eq!(e.code, jidr_core::ErrorCode::Usage, "{e}");
         assert!(e.message.contains("this image's kernel has no"), "{e}");
         assert_eq!(
@@ -236,8 +265,9 @@ async fn helper_starts_as_root_and_drops_packets() {
         return;
     }
 
-    // 3. 50% loss: the kernel shows netem on every shaped interface.
-    let v = call(
+    // 3. 50% loss: the kernel shows netem on every shaped interface. Each
+    // shaping call waits for a default route ([`shaping`]).
+    let v = shaping(
         &daemon,
         &ctx,
         "network.shaping.set",
@@ -245,7 +275,8 @@ async fn helper_starts_as_root_and_drops_packets() {
     )
     .await;
     assert_eq!(v["loss_pct"], 50.0, "{v}");
-    for iface in &ifaces {
+    // The interfaces the set shaped: those with a route at that moment.
+    for iface in &names(&v) {
         let q = shell(&info, &format!("tc qdisc show dev {iface}"));
         assert!(
             q.contains("netem") && q.contains("loss 50%"),
@@ -263,7 +294,7 @@ async fn helper_starts_as_root_and_drops_packets() {
     )
     .await;
     assert_ne!(v["helper"]["pid"].as_u64().unwrap(), pid, "{v}");
-    let v = call(
+    let v = shaping(
         &daemon,
         &ctx,
         "network.shaping.get",
@@ -273,7 +304,7 @@ async fn helper_starts_as_root_and_drops_packets() {
     assert_eq!(v["loss_pct"], 50.0, "{v}");
 
     // 5. 0 removes Jidr's netem.
-    let v = call(
+    let v = shaping(
         &daemon,
         &ctx,
         "network.shaping.set",
@@ -281,7 +312,7 @@ async fn helper_starts_as_root_and_drops_packets() {
     )
     .await;
     assert_eq!(v["loss_pct"], 0.0, "{v}");
-    for iface in &ifaces {
+    for iface in ifaces.iter().chain(&names(&v)) {
         let q = shell(&info, &format!("tc qdisc show dev {iface}"));
         assert!(!q.contains("netem"), "{iface}: {q}");
     }
@@ -291,7 +322,7 @@ async fn helper_starts_as_root_and_drops_packets() {
     // 2026-11-14), so it is no baseline. The proof is that DNS packets go
     // through the delaying band, and that a lookup takes the delay.
     lookup_secs(&info);
-    let v = call(
+    let v = shaping(
         &daemon,
         &ctx,
         "network.shaping.set",
@@ -303,7 +334,8 @@ async fn helper_starts_as_root_and_drops_packets() {
         (&json!("slow"), &json!(3000)),
         "{v}"
     );
-    for iface in &ifaces {
+    let shaped = names(&v);
+    for iface in &shaped {
         let q = shell(&info, &format!("tc qdisc show dev {iface}"));
         assert!(
             q.contains("prio 1d:") && q.contains("delay 3"),
@@ -318,9 +350,9 @@ async fn helper_starts_as_root_and_drops_packets() {
             "{iface}: {f}"
         );
     }
-    let (sent, _) = dns_band(&info, &ifaces);
+    let (sent, _) = dns_band(&info, &shaped);
     let slow = lookup_secs(&info);
-    let (sent_after, _) = dns_band(&info, &ifaces);
+    let (sent_after, _) = dns_band(&info, &shaped);
     assert!(
         sent_after > sent,
         "the lookup's queries didn't go through the DNS band ({sent} → {sent_after} packets)"
@@ -329,16 +361,17 @@ async fn helper_starts_as_root_and_drops_packets() {
 
     // 7. Failing DNS: every query is dropped in the DNS band, and the
     // lookup only ends when the resolver gives up.
-    call(
+    let v = shaping(
         &daemon,
         &ctx,
         "network.shaping.set",
         json!({ "device": name, "dns": "fail" }),
     )
     .await;
-    let (_, dropped) = dns_band(&info, &ifaces);
+    let shaped = names(&v);
+    let (_, dropped) = dns_band(&info, &shaped);
     let fail = lookup_secs(&info);
-    let (sent, dropped_after) = dns_band(&info, &ifaces);
+    let (sent, dropped_after) = dns_band(&info, &shaped);
     assert!(
         dropped_after > dropped,
         "the lookup's queries weren't dropped ({dropped} → {dropped_after})"
@@ -347,7 +380,7 @@ async fn helper_starts_as_root_and_drops_packets() {
     assert!(fail >= 4.0, "failing DNS gave up after {fail:.1} s");
 
     // 8. Loss and slow DNS are stored and come back after a cold boot.
-    call(
+    shaping(
         &daemon,
         &ctx,
         "network.shaping.set",
@@ -366,7 +399,7 @@ async fn helper_starts_as_root_and_drops_packets() {
         .connect_info(state.device(&name).await.unwrap().id)
         .await
         .unwrap();
-    let v = call(
+    let v = shaping(
         &daemon,
         &ctx,
         "network.shaping.get",
@@ -374,14 +407,25 @@ async fn helper_starts_as_root_and_drops_packets() {
     )
     .await;
     println!("after a cold boot: {v}");
-    assert_eq!(
-        (&v["loss_pct"], &v["dns"], &v["dns_delay_ms"]),
-        (&json!(20.0), &json!("slow"), &json!(1500)),
-        "{v}"
+    // The boot hook shaped every interface that had a route once the list
+    // settled; one that comes up later only gets it at the next set. Every
+    // shaped interface has exactly the stored values.
+    let ifs = v["interfaces"].as_array().unwrap();
+    let shaped: Vec<&Value> = ifs.iter().filter(|i| i["dns"] != "normal").collect();
+    assert!(
+        !shaped.is_empty(),
+        "nothing re-applied after a cold boot: {v}"
     );
+    for i in shaped {
+        assert_eq!(
+            (&i["loss_pct"], &i["dns"], &i["dns_delay_ms"]),
+            (&json!(20.0), &json!("slow"), &json!(1500)),
+            "{v}"
+        );
+    }
 
     // 9. Cleared: the kernel's own qdiscs, and nothing stored.
-    let v = call(
+    let v = shaping(
         &daemon,
         &ctx,
         "network.shaping.set",
@@ -393,7 +437,7 @@ async fn helper_starts_as_root_and_drops_packets() {
         (&json!(0.0), &json!("normal")),
         "{v}"
     );
-    for iface in &ifaces {
+    for iface in ifaces.iter().chain(&names(&v)) {
         let q = shell(&info, &format!("tc qdisc show dev {iface}"));
         assert!(
             !q.contains("netem") && !q.contains("prio 1d:"),
