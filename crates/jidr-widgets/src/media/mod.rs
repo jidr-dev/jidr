@@ -234,23 +234,35 @@ where
 {
     use tokio_stream::StreamExt as _;
     let mut warned = false;
+    let mut first = true;
     let end = loop {
         match packets.next().await {
-            Some(Ok(p)) => match audio::to_stereo(p.format.as_ref(), &p.audio) {
-                Some(pcm) => {
-                    if tx.send((Instant::now(), pcm)).is_err() {
-                        return;
-                    }
-                }
-                None if !warned => {
-                    warned = true;
-                    tracing::warn!(
-                        "recording: the emulator sent audio as {:?}; it's left out",
-                        p.format
+            Some(Ok(p)) => {
+                let at = Instant::now();
+                if first {
+                    first = false;
+                    tracing::info!(
+                        "recording: device audio started ({:?}, {} bytes a packet)",
+                        p.format,
+                        p.audio.len()
                     );
                 }
-                None => {}
-            },
+                match audio::to_stereo(p.format.as_ref(), &p.audio) {
+                    Some(pcm) => {
+                        if tx.send((at, pcm)).is_err() {
+                            return;
+                        }
+                    }
+                    None if !warned => {
+                        warned = true;
+                        tracing::warn!(
+                            "recording: the emulator sent audio as {:?}; it's left out",
+                            p.format
+                        );
+                    }
+                    None => {}
+                }
+            }
             Some(Err(e)) => break e.message().to_string(),
             None => break "it ended".to_string(),
         }
@@ -260,59 +272,77 @@ where
     }
 }
 
-/// Opens `streamAudio` and starts its pump (abort it when done: a silent
-/// device sends nothing, so the pump can wait forever). `None`
-/// (video-only, with a warning) when the device has no audio or the call
-/// fails.
+/// The audio side of a recording: packets from the pump, and whether
+/// `streamAudio` failed to open (the file is then video-only).
 #[cfg(target_os = "macos")]
-async fn open_audio(
-    t: &Target,
-    stop: Arc<AtomicBool>,
-) -> Option<(
-    std::sync::mpsc::Receiver<Packet>,
-    tokio::task::JoinHandle<()>,
-)> {
-    if t.device.launch.audio == Some(false) {
-        tracing::warn!(
-            "recording {} without audio: the device starts with -no-audio",
-            t.device.name
-        );
-        return None;
-    }
-    let call = async {
-        t.grpc()
-            .await?
-            .stream_audio(audio::format_pb())
-            .await
-            .map_err(grpc_err("streamAudio"))
-    };
-    match call.await {
-        Ok(stream) => {
-            let (tx, rx) = std::sync::mpsc::channel();
-            let pump = tokio::spawn(pump_audio(stream.into_inner(), tx, stop));
-            Some((rx, pump))
-        }
-        Err(e) => {
-            tracing::warn!("recording {} without audio: {}", t.device.name, e.message);
-            None
-        }
+struct AudioFeed {
+    rx: std::sync::mpsc::Receiver<Packet>,
+    failed: Arc<AtomicBool>,
+}
+
+#[cfg(target_os = "macos")]
+impl AudioFeed {
+    fn failed(&self) -> bool {
+        self.failed.load(Ordering::Relaxed)
     }
 }
 
+/// Opens `streamAudio` and pumps it on a task (abort it when done). The
+/// call itself waits until the guest first plays something, so nothing
+/// waits for it: until then the track is silence. `None` (video-only, with
+/// a warning) when the device starts with `-no-audio`.
+#[cfg(target_os = "macos")]
+fn start_audio(
+    t: &Target,
+    stop: Arc<AtomicBool>,
+) -> Option<(AudioFeed, tokio::task::JoinHandle<()>)> {
+    let name = t.device.name.clone();
+    if t.device.launch.audio == Some(false) {
+        tracing::warn!("recording {name} without audio: the device starts with -no-audio");
+        return None;
+    }
+    let (port, token) = (t.info.grpc_port, t.info.grpc_token.clone());
+    let (tx, rx) = std::sync::mpsc::channel();
+    let failed = Arc::new(AtomicBool::new(false));
+    let flag = failed.clone();
+    let task = tokio::spawn(async move {
+        let call = async {
+            jidr_backend::grpc::connect_port(port, &token)
+                .await?
+                .0
+                .stream_audio(audio::format_pb())
+                .await
+                .map_err(grpc_err("streamAudio"))
+        };
+        match call.await {
+            Ok(stream) => pump_audio(stream.into_inner(), tx, stop).await,
+            Err(e) => {
+                tracing::warn!("recording {name} without audio: {}", e.message);
+                flag.store(true, Ordering::Relaxed);
+            }
+        }
+    });
+    Some((AudioFeed { rx, failed }, task))
+}
+
 /// Lays the packets that came in on the timeline and writes them, then
-/// silence up to `now`. A failed append ends the audio track (with a
-/// warning) and the video goes on.
+/// silence up to `now`. A failed append, or a stream that failed to open,
+/// ends the audio track (with a warning) and the video goes on.
 #[cfg(target_os = "macos")]
 fn feed_audio(
     wr: &mut mp4::Mp4Writer,
     tl: &mut audio::Timeline,
-    rx: &std::sync::mpsc::Receiver<Packet>,
+    feed: &AudioFeed,
     start: Instant,
     now: Duration,
 ) -> bool {
+    if feed.failed() {
+        wr.end_audio();
+        return false;
+    }
     let rate = f64::from(audio::RATE);
     let mut chunks = Vec::new();
-    for (at, pcm) in rx.try_iter() {
+    for (at, pcm) in feed.rx.try_iter() {
         let len = Duration::from_secs_f64((pcm.len() / audio::FRAME_BYTES) as f64 / rate);
         let since = at.saturating_duration_since(start).saturating_sub(len);
         chunks.extend(tl.place(since, &pcm));
@@ -354,9 +384,9 @@ async fn record(
         .map_err(grpc_err("streamScreenshot"))?
         .into_inner();
     let reader = tokio::spawn(pump(stream, latest.clone(), stop.clone()));
-    // Audio stream (emulator → channel), opened before the clock starts.
-    let (audio_rx, audio_pump) = match audio {
-        true => open_audio(t, stop.clone()).await.unzip(),
+    // Audio stream (emulator → channel).
+    let (audio_feed, audio_pump) = match audio {
+        true => start_audio(t, stop.clone()).unzip(),
         false => (None, None),
     };
     // Encoder on its own thread at a constant rate; duplicates the last
@@ -367,11 +397,7 @@ async fn record(
     let enc = tokio::task::spawn_blocking(move || -> JidrResult<(i64, bool, bool)> {
         let mut writer: Option<mp4::Mp4Writer> = None;
         let mut timeline = audio::Timeline::default();
-        let mut audio_rx = audio_rx;
-        let audio_spec = audio_rx.as_ref().map(|_| mp4::AudioSpec {
-            rate: audio::RATE,
-            channels: audio::CHANNELS,
-        });
+        let mut audio_feed = audio_feed;
         let start = Instant::now();
         let mut last_report = Instant::now();
         let mut cancelled = false;
@@ -390,9 +416,16 @@ async fn record(
                 && let Some((fw, fh, px)) = l.frame.take()
             {
                 if writer.is_none() {
-                    let wr = mp4::Mp4Writer::create(&path_buf, fw, fh, fps as i32, audio_spec)?;
+                    if audio_feed.as_ref().is_some_and(AudioFeed::failed) {
+                        audio_feed = None;
+                    }
+                    let spec = audio_feed.as_ref().map(|_| mp4::AudioSpec {
+                        rate: audio::RATE,
+                        channels: audio::CHANNELS,
+                    });
+                    let wr = mp4::Mp4Writer::create(&path_buf, fw, fh, fps as i32, spec)?;
                     if !wr.has_audio() {
-                        audio_rx = None;
+                        audio_feed = None;
                     }
                     writer = Some(wr);
                 }
@@ -407,10 +440,10 @@ async fn record(
                 while wr.frames() <= due {
                     wr.push(px)?;
                 }
-                if let Some(rx) = audio_rx.as_ref()
-                    && !feed_audio(wr, &mut timeline, rx, start, start.elapsed())
+                if let Some(feed) = audio_feed.as_ref()
+                    && !feed_audio(wr, &mut timeline, feed, start, start.elapsed())
                 {
-                    audio_rx = None;
+                    audio_feed = None;
                 }
             }
             if last_report.elapsed() >= Duration::from_secs(1) {
@@ -425,10 +458,10 @@ async fn record(
         }
         let frames = writer.as_ref().map(mp4::Mp4Writer::frames).unwrap_or(0);
         let has_audio = writer.as_ref().is_some_and(mp4::Mp4Writer::has_audio);
-        if let (Some(wr), Some(rx), false) = (writer.as_mut(), audio_rx.as_ref(), cancelled) {
+        if let (Some(wr), Some(feed), false) = (writer.as_mut(), audio_feed.as_ref(), cancelled) {
             // The last packets, then silence to the video's end.
             let end = Duration::from_secs_f64(frames as f64 / f64::from(fps));
-            if feed_audio(wr, &mut timeline, rx, start, end)
+            if feed_audio(wr, &mut timeline, feed, start, end)
                 && let Some(c) = timeline.finish(end)
                 && let Err(e) = wr.push_audio(c.start, &c.pcm)
             {

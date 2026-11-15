@@ -44,13 +44,47 @@ fn probe(path: &Path, kind: &str) -> Value {
     v
 }
 
+/// The audio track has sound in it (not only the silence that fills gaps).
+fn loud(path: &Path) -> bool {
+    let pcm = std::process::Command::new("ffmpeg")
+        .args(["-v", "error", "-i"])
+        .arg(path)
+        .args(["-vn", "-ac", "1", "-ar", "8000", "-f", "s16le", "-"])
+        .output()
+        .expect("ffmpeg on PATH")
+        .stdout;
+    pcm.chunks_exact(2)
+        .any(|s| i16::from_le_bytes([s[0], s[1]]).unsigned_abs() > 1_000)
+}
+
 fn secs(v: &Value) -> f64 {
     v.as_str().unwrap().parse().unwrap()
 }
 
-/// Asks the guest to play a sound: a notification with the default sound.
-fn beep(env: &common::Env) {
-    env.shell("cmd notification post -S bigtext jidr-28 'Jidr audio test'");
+/// Makes the guest play a sound: an incoming call rings. Stock images have
+/// no ringtone set (telecom logs `isRingtonePresent=false` and stays
+/// silent), so one of the image's own sounds becomes the ringtone first.
+async fn ring(env: &common::Env) {
+    let rows =
+        env.shell("content query --uri content://media/internal/audio/media --projection _id");
+    if let Some(id) = rows
+        .split("_id=")
+        .nth(1)
+        .and_then(|r| r.split(|c: char| !c.is_ascii_digit()).next())
+    {
+        env.shell(&format!(
+            "settings put system ringtone content://media/internal/audio/media/{id}"
+        ));
+    }
+    env.call("phone.call", json!({ "number": "5551234" })).await;
+}
+
+async fn hang_up(env: &common::Env) {
+    env.call(
+        "phone.call",
+        json!({ "number": "5551234", "action": "reject" }),
+    )
+    .await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -79,7 +113,7 @@ async fn media_screenshot_and_five_minute_recording() {
         .await
         .expect("streamAudio")
         .into_inner();
-    beep(&env);
+    ring(&env).await;
     match tokio::time::timeout(Duration::from_secs(10), packets.message()).await {
         Ok(Ok(Some(p))) => {
             println!("audio packet: {:?}, {} bytes", p.format, p.audio.len());
@@ -92,6 +126,7 @@ async fn media_screenshot_and_five_minute_recording() {
         other => println!("no audio packet within 10 s: {other:?}"),
     }
     drop(packets);
+    hang_up(&env).await;
 
     // Recording encodes with AVFoundation (VideoToolbox): macOS only.
     if !cfg!(target_os = "macos") {
@@ -99,7 +134,8 @@ async fn media_screenshot_and_five_minute_recording() {
         return;
     }
 
-    // A short recording with sound has an AAC track as long as the video.
+    // A short recording with a ringing call has an AAC track as long as the
+    // video, with sound in it.
     let short = env.tmp.path().join("audio.mp4");
     let (rec, ()) = tokio::join!(
         env.run(
@@ -107,10 +143,10 @@ async fn media_screenshot_and_five_minute_recording() {
             json!({ "path": short, "max_seconds": 8, "fps": 30 }),
         ),
         async {
-            for _ in 0..3 {
-                tokio::time::sleep(Duration::from_secs(2)).await;
-                beep(&env);
-            }
+            tokio::time::sleep(Duration::from_secs(2)).await;
+            ring(&env).await;
+            tokio::time::sleep(Duration::from_secs(3)).await;
+            hang_up(&env).await;
         }
     );
     println!("audio recording: {rec}");
@@ -126,6 +162,7 @@ async fn media_screenshot_and_five_minute_recording() {
         (audio_s - video_s).abs() < 0.5,
         "audio {audio_s} s, file {video_s} s"
     );
+    assert!(loud(&short), "the ringtone isn't in the recording");
 
     // `audio: false` is video-only.
     let silent = env.tmp.path().join("silent.mp4");
