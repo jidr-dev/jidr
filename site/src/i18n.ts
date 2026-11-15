@@ -131,6 +131,7 @@ const en = {
     x: "On X:",
     blog: "Blog",
     copyright: "© 2026 Jidr contributors",
+    analytics: "This site counts visits with cookieless PostHog. The app sends nothing.",
     downloaded: "Downloaded on your Mac",
     downloadedItems: [
       "Android Emulator and system images: Google, under the Android SDK License, accepted in the app",
@@ -270,6 +271,7 @@ const ar: Strings = {
     x: "على X:",
     blog: "المدونة (بالإنجليزية)",
     copyright: "© 2026 مساهمو جذر",
+    analytics: "يحصي هذا الموقع الزيارات عبر PostHog دون ملفات تعريف الارتباط. التطبيق لا يرسل شيئًا.",
     downloaded: "يُنزَّل على جهازك",
     downloadedItems: [
       "محاكي Android وصور النظام: من Google، وفق رخصة Android SDK التي تقبلها داخل التطبيق",

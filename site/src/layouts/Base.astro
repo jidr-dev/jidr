@@ -20,7 +20,8 @@ import kufi600 from "@fontsource/noto-kufi-arabic/files/noto-kufi-arabic-arabic-
 import "../styles/tokens.css";
 import "../styles/workbench.css";
 import "../styles/site.css";
-import { links, phase, release } from "../config";
+import { analytics, links, phase, release } from "../config";
+import Analytics from "../components/Analytics.astro";
 import { locales, strings } from "../i18n";
 
 interface Props {
@@ -94,6 +95,7 @@ const fonts = t.lang === "ar" ? [kufi600, kufi400] : [geist700, geist400, geist5
     <meta name="twitter:image" content={ogImage} />
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
     <slot name="head" />
+    {analytics.key && import.meta.env.PROD && <Analytics />}
   </head>
   <body>
     <a class="skip-link" href="#main">{t.skip}</a>

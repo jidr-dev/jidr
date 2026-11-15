@@ -73,7 +73,7 @@ pub fn run(args: &[String]) -> Result<()> {
     }
     if !cfg!(target_os = "macos") {
         bail!(
-            "release builds the macOS app and DMG on macOS, or the headless tarball on x86_64 Linux (D15, D48)"
+            "release builds the macOS app and DMG on macOS, or the headless tarball on x86_64 Linux (D15, D49)"
         );
     }
     let root = workspace_root();
@@ -200,7 +200,7 @@ const LINUX_TRIPLE: &str = "x86_64-unknown-linux-gnu";
 /// guests (ADR-0003).
 const LINUX_HELPER: &str = "x86_64";
 
-/// The headless Linux release (#50, D48): `jidr` (CLI, daemon and MCP) with
+/// The headless Linux release (#50, D49): `jidr` (CLI, daemon and MCP) with
 /// the x86_64 on-device helper and the licences, packed as
 /// `jidr-<version>-x86_64-unknown-linux-gnu.tar.gz` with a `.sha256` next to
 /// it. No GUI and no MCP bundle. `--dry-run` changes nothing here: nothing is

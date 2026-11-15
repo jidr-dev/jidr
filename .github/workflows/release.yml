@@ -2,7 +2,7 @@ name: Release
 
 # Builds the arm64 DMG and the MCP bundle (.mcpb) for a release tag and
 # uploads them, with SHA256SUMS.txt, to that tag's GitHub Release. A Linux job
-# adds the headless x86_64 tarball (CLI, daemon and MCP; #50, D48) and its
+# adds the headless x86_64 tarball (CLI, daemon and MCP; #50, D49) and its
 # .sha256 to the same release. Then it
 # bumps the Homebrew cask in AbdurahmanAlmehdi/homebrew-tap and publishes
 # server.json to the MCP Registry (GitHub OIDC, no secret). Called by release-please.yml when a release
@@ -130,7 +130,7 @@ jobs:
 
   linux-x86_64:
     name: Linux x86_64 tarball
-    # Headless `jidr` only: the desktop app is macOS-only for now (D48).
+    # Headless `jidr` only: the desktop app is macOS-only for now (D49).
     # Ubuntu 22.04 links against glibc 2.35, so the binary also runs on
     # older distributions than ubuntu-latest's.
     runs-on: ubuntu-22.04

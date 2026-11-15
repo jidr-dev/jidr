@@ -22,7 +22,7 @@ jidr --json device start Phone --timeout 300 || exit $?
 
 ## Linux (headless)
 
-On x86_64 Linux, Jidr ships as the `jidr` binary alone: the CLI, the daemon and the MCP server, with no desktop app. The desktop app is macOS-only for now (D48, #50). Everything above works the same way.
+On x86_64 Linux, Jidr ships as the `jidr` binary alone: the CLI, the daemon and the MCP server, with no desktop app. The desktop app is macOS-only for now (D49, #50). Everything above works the same way.
 
 You need:
 
