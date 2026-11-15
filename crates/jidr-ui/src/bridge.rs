@@ -147,7 +147,7 @@ impl Bridge {
     /// health check fails.
     async fn session(&self, c: &Arc<Client>, sink: &Sink, cache: &mut Cache) -> JidrResult<()> {
         let mut events = c
-            .subscribe(&["device.", "job.", "pool.", "physical."])
+            .subscribe(&["device.", "job.", "pool.", "physical.", "file.sync."])
             .await?;
         cache.details.clear();
         if let Ok(p) = c

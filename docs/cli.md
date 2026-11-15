@@ -80,6 +80,7 @@ jidr device start Phone
 | `device reset <name> --yes`, `device delete <names…> \| --all --yes` | Destructive: wipe data, or delete. Without `--yes` they ask on a terminal and refuse otherwise. |
 | `install <name> <apk> [--no-replace] [--grant] [--downgrade]` | Install an APK. A signature mismatch fails with `details.signature_mismatch = true`. |
 | `push <name> <local> [remote]`, `pull <name> <remote> <local>` | Copy files (push defaults to `/sdcard/Download/`). |
+| `sync start <name> <local> [remote] [--ignore NAME…] [--no-default-ignore] [--max-files N] [--no-wait]`, `sync stop <id>`, `sync list [name]` | Keep a folder on this Mac copied to a running device, one way (default destination `/sdcard/Download/<folder name>`). See [Synced folders](#synced-folders). |
 | `logcat <name> [-n N] [--filter spec…] [-f] [--clear]` | Dump, follow (`-f`) or clear the log. |
 | `flash <name> <zip>` | Flash a zip (`file.flash`, ADR-0004). A Magisk or Zygisk module installs on a running Full-root device, which reboots; Jidr then checks that Magisk loaded it. Recovery (TWRP, GApps), Riru and OTA/factory image zips are refused with exit 2 and the reason; a module zip with `module.prop` in a subfolder or an invalid id is refused with the fix. A module on a device without Full root, and any other zip, is copied to `/sdcard/Download`. See [root.md](root.md#flashable-zips). |
 | `phone list`, `phone details <phone>` | USB phones adb sees (USB debugging on, #92): serial, state (`ready`, `unauthorized`, `offline`, `no_permissions`…), model, Android version and battery; `details` adds the screen size. A phone that isn't ready gets a hint (unlock it and tap Allow on the USB debugging prompt…). See [Phones](#phones). |
@@ -177,6 +178,23 @@ jidr cert remove Phone a4ac454c.0            # or --all
 ```
 
 `install` restarts the device and fails with exit code 7 (root failed) unless the certificate ends up in the store apps read. How it works on each Android version is in docs/root.md.
+
+## Synced folders
+
+Keep a folder on this Mac copied to a running device while you work on it, e.g. a web app's build output or test fixtures (#27):
+
+```bash
+jidr sync start Phone ~/code/site/dist                    # → /sdcard/Download/dist, waits for the first copy
+jidr sync start Phone ./fixtures /sdcard/Android/data/com.example/files/fixtures --ignore build --no-wait
+jidr sync list
+jidr sync stop 4b0c1a2e                                   # the id, or its first characters
+```
+
+The first copy sends the whole folder; after that Jidr watches it and sends each batch of changes once the folder has been quiet for 300 ms (every 2 s at most while it keeps changing). Saving a file pushes it; deleting or renaming a file or folder on the Mac deletes the old path on the device too. Files that exist only on the device are left alone. The sync is one way: changes made on the device aren't copied back and are overwritten when the Mac's file changes.
+
+To keep a mistake from copying a huge tree, `.git`, `node_modules` and `.DS_Store` are skipped at any depth (`--no-default-ignore` syncs them, `--ignore NAME` skips more exact names), symlinks aren't followed, and a folder with more than 10000 files after skips exits 2 with the limit (`--max-files N` raises it). One sync per device folder: syncing into a folder that's already synced, or one inside it, exits 2.
+
+A sync lasts as long as its device runs. Stopping, hibernating or deleting the device (or a crash) ends it, and it doesn't resume at the next start or after the daemon restarts: run `sync start` again; its first copy sends the whole folder again. Under the hood these are the `file.sync.*` protocol commands, with `file.sync.*` events for progress and errors.
 
 ## Microphone
 

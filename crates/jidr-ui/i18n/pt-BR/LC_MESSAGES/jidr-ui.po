@@ -1343,6 +1343,38 @@ msgstr "Escolha uma rota GPX ou KML"
 msgid "An Android ID is 16 hexadecimal digits (0–9 and a–f)."
 msgstr "Um Android ID tem 16 dígitos hexadecimais (0–9 e a–f)."
 
+#: src/widgets/sync.rs
+msgid "Copying changes…"
+msgstr "Copiando alterações…"
+
+#: src/widgets/sync.rs
+msgid "Copying {} of {} files…"
+msgstr "Copiando {} de {} arquivos…"
+
+#: src/widgets/sync.rs
+msgid "Start the device first, then sync the folder"
+msgstr "Inicie o dispositivo primeiro e depois sincronize a pasta"
+
+#: src/widgets/sync.rs
+msgid "Syncing {} to {}"
+msgstr "Sincronizando {} em {}"
+
+#: src/widgets/sync.rs
+msgid "Choose a folder to keep copied to the device"
+msgstr "Escolha uma pasta para manter copiada no dispositivo"
+
+#: src/widgets/sync.rs
+msgid "Copying {n} file…"
+msgid_plural "Copying {n} files…"
+msgstr[0] "Copiando {n} arquivo…"
+msgstr[1] "Copiando {n} arquivos…"
+
+#: src/widgets/sync.rs
+msgid "Up to date · {n} file copied"
+msgid_plural "Up to date · {n} files copied"
+msgstr[0] "Atualizado · {n} arquivo copiado"
+msgstr[1] "Atualizado · {n} arquivos copiados"
+
 #: src/wizard/mod.rs
 msgid "Found · used read-only"
 msgstr "Encontrado · usado como somente leitura"
@@ -1558,7 +1590,7 @@ msgstr "Retomar"
 msgid "Hibernate"
 msgstr "Hibernar"
 
-#: ui/launcher.slint
+#: ui/launcher.slint ui/widgets/panels.slint
 msgid "Stop"
 msgstr "Parar"
 
@@ -2398,6 +2430,18 @@ msgstr "Nenhuma"
 #: ui/widgets/panels.slint
 msgid "Applies the next time the device starts."
 msgstr "Aplicado na próxima vez que o dispositivo iniciar."
+
+#: ui/widgets/panels.slint
+msgid "Synced folders"
+msgstr "Pastas sincronizadas"
+
+#: ui/widgets/panels.slint
+msgid "Sync a folder…"
+msgstr "Sincronizar pasta…"
+
+#: ui/widgets/panels.slint
+msgid "Copies a folder on this Mac to the device and keeps it up to date, deletions included. Skips .git and node_modules."
+msgstr "Copia uma pasta deste Mac para o dispositivo e a mantém atualizada, inclusive exclusões. Ignora .git e node_modules."
 
 #: ui/widgets/panels.slint
 msgid "Latitude"

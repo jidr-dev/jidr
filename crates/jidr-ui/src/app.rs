@@ -284,7 +284,11 @@ pub fn sink(weak: Weak<AppWindow>) -> impl Fn(Update) + Send + Sync + 'static {
                     app.set_conn_text(text.into());
                 }
                 Update::Data(data) => apply_data(&app, data),
-                Update::Event(_) => {}
+                Update::Event(ev) => {
+                    if let Some(c) = ctx() {
+                        crate::widgets::on_event(&c, &ev);
+                    }
+                }
             }
         });
     }
