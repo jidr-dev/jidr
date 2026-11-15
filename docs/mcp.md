@@ -10,7 +10,9 @@ Claude Code:
 claude mcp add jidr -- jidr mcp
 ```
 
-Claude Desktop: download `jidr-mcp-<version>-darwin-arm64.mcpb` from the [latest release](https://github.com/jidr-dev/jidr/releases/latest) and open it, or add Jidr by hand to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+On Linux (headless, [cli.md](cli.md#linux-headless)) the command is the same once `jidr` is on your `PATH`; if Claude Code doesn't see it, give the full path: `claude mcp add jidr -- ~/.local/bin/jidr mcp`. The tools are the same as on the Mac, except screen recording of a device.
+
+Claude Desktop (macOS): download `jidr-mcp-<version>-darwin-arm64.mcpb` from the [latest release](https://github.com/jidr-dev/jidr/releases/latest) and open it, or add Jidr by hand to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {

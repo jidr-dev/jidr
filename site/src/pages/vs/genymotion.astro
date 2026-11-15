@@ -40,11 +40,11 @@ const label = { yes: "Yes", partly: "Partly", planned: "Planned", no: "No" };
 
 const faq: [string, string][] = [
   ["Is Jidr free?", "Yes. Jidr is free and open source, with no paid tier and no account. The desktop app is GPL-3.0-only and everything else is Apache-2.0. Sponsorships fund the work."],
-  ["Does Jidr run on Windows or Linux?", "Not yet. Jidr runs on macOS 14 or later on Apple Silicon. Genymotion Desktop also runs on Windows and Linux, so on those systems it's the option today."],
+  ["Does Jidr run on Windows or Linux?", "Partly. The desktop app runs on macOS 14 or later on Apple Silicon. On x86_64 Linux with KVM, Jidr ships headless: the jidr CLI, the daemon and the MCP server, without the desktop app. Windows isn't supported yet; Genymotion Desktop runs there, so on Windows it's the option today."],
   ["Which Android images does Jidr use?", "Google's official Android Emulator system images (API 29 to 36, arm64), downloaded on your Mac under the Android SDK License. Jidr runs them with the AOSP emulator and never modifies Android Studio's SDK."],
   ["Can Jidr root a device like Genymotion's root toggle?", "Yes, two ways: Shell root (adb root) on images that allow it, and Full root, which patches Magisk into a per-device copy of the ramdisk and verifies it with su -c id. Both revert in one step."],
   ["Can I use Jidr in CI or from an AI agent?", "Yes. Every action is a jidr CLI command with --json output and stable exit codes, and jidr mcp is an MCP server that lets Claude and other agents see and drive a device."],
-  ["What does Genymotion do that Jidr doesn't?", "Today: Windows and Linux support, operator and SIM identity, IMEI changes, disk I/O limits, gamepad passthrough, Device Link and file-based camera injection. Most of these are planned; the issue links in the table track them."],
+  ["What does Genymotion do that Jidr doesn't?", "Today: Windows support, a desktop app on Linux, operator and SIM identity, IMEI changes, disk I/O limits, gamepad passthrough, Device Link and file-based camera injection. Most of these are planned; the issue links in the table track them."],
 ];
 const faqLd = {
   "@context": "https://schema.org",
@@ -83,7 +83,7 @@ const description =
             </div>
             <div class="feat">
               <h4 aria-level="3">Choose Genymotion if</h4>
-              <p>You need Windows or Linux, cloud devices, commercial support, or one of the features Jidr hasn't built yet: operator and SIM identity, IMEI changes, disk I/O limits, gamepad or Device Link.</p>
+              <p>You need Windows or a desktop app on Linux, cloud devices, commercial support, or one of the features Jidr hasn't built yet: operator and SIM identity, IMEI changes, disk I/O limits, gamepad or Device Link.</p>
             </div>
           </div>
         </section>
@@ -110,7 +110,7 @@ const description =
                     </td>
                   </tr>
                 ))}
-                <tr><td>Platforms</td><td><span class="paid">Windows, macOS, Linux</span></td><td><span class="paid">macOS 14+ on Apple Silicon</span></td></tr>
+                <tr><td>Platforms</td><td><span class="paid">Windows, macOS, Linux</span></td><td><span class="paid">macOS 14+ on Apple Silicon; Linux x86_64 (CLI and MCP only)</span></td></tr>
                 <tr><td>Licence</td><td><span class="paid">Proprietary</span></td><td><span class="paid">Open source (Apache-2.0, app GPL-3.0)</span></td></tr>
                 <tr><td>Price</td><td><span class="paid">Free tier and paid plans</span></td><td><span class="yes"><Icon name="check" class="ic i14" />Free</span></td></tr>
               </tbody>
