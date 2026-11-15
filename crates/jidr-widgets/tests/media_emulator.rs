@@ -53,8 +53,10 @@ fn loud(path: &Path) -> bool {
         .output()
         .expect("ffmpeg on PATH")
         .stdout;
-    pcm.chunks_exact(2)
-        .any(|s| i16::from_le_bytes([s[0], s[1]]).unsigned_abs() > 1_000)
+    pcm.as_chunks::<2>()
+        .0
+        .iter()
+        .any(|s| i16::from_le_bytes(*s).unsigned_abs() > 1_000)
 }
 
 fn secs(v: &Value) -> f64 {

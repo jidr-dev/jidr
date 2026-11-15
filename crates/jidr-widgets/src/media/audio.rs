@@ -64,7 +64,7 @@ pub fn to_stereo(format: Option<&pb::AudioFormat>, pcm: &[u8]) -> Option<Vec<u8>
     }
     let mono = whole_frames(pcm, 2);
     let mut out = Vec::with_capacity(mono.len() * 2);
-    for s in mono.chunks_exact(2) {
+    for s in mono.as_chunks::<2>().0 {
         out.extend_from_slice(s);
         out.extend_from_slice(s);
     }
