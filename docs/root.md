@@ -290,6 +290,7 @@ jidr network dns <device> fail   # drop every DNS query: lookups time out
 jidr network loss <device>       # show loss and DNS on each interface
 jidr network dns <device> normal # DNS back to normal
 jidr network loss <device> 0     # remove the loss
+jidr identity <device> --android-id 0123456789abcdef   # see "Identifiers" below
 ```
 
 Packet loss (`network.shaping.set {device, loss_pct}`) uses Linux traffic
@@ -351,6 +352,61 @@ has neither netem nor the `prio` qdisc, so the command fails there with
 and changes nothing (D44). Nothing is stored either, so no boot tries again;
 and if a stored setting ever meets a kernel that can't do it, the boot hook
 forgets it after one warning.
+
+### Identifiers: Android ID and IMEI (#19)
+
+```bash
+jidr identity <device>                                  # both, read over adb (no root needed)
+jidr identity <device> --android-id 0123456789abcdef    # 16 hex digits; restarts Android
+```
+
+**Android ID.** Since Android 8 an app doesn't read the global
+`android_id` setting: `SettingsProvider` answers every app uid with its own
+value, the SSAID, from `/data/system/users/0/settings_ssaid.xml` (derived
+from a per-user key and the app's signing certificate). Only system and
+shell callers see the global value. Changing just the global value (what
+`settings put secure android_id` does) would leave the app under test
+reading its old ID, so `identity.set {android_id}` gives the new ID to
+every installed app: the helper stops the Android framework (`stop`),
+rewrites the SSAID table with the new ID for every installed app uid
+(keeping the per-user key; the table is binary XML from Android 12, read
+with Android's own `abx2xml`, and written back as plain XML, which
+`SettingsProvider` also reads), and starts it again (`start`). Once the
+framework is back the daemon writes the global value too. It takes about
+as long as a boot, and the app under test is restarted with everything
+else.
+
+- Apps installed after the change get their own derived ID again, until
+  the next change. Uninstalling an app drops its entry. Install the app,
+  then set the ID.
+- Both values live in `/data`: a cold boot keeps them, and snapshots
+  include them.
+
+**IMEI: read only.** `identity.get` reports it, but it can't be changed on
+Google's emulator images without modifying them:
+
+- The emulator's modem answers `AT+CGSN` with a constant (`358240051111110`
+  in the legacy modem, `867400022047199` in the modem simulator API 31+
+  images use). No emulator flag, console command or AVD setting changes it.
+- On API 31 and later the guest's radio service (`vendor.ril-daemon`, or
+  `vendor.radio-ranchu` on API 36) opens whatever device the property
+  `vendor.qemu.vport.modem` names, and telephony reads the IMEI again
+  whenever the radio becomes available. So a relay between the two,
+  rewriting the `AT+CGSN` answer, would work. It was built and tried on an
+  API 35 image (kernel 6.6, SELinux enforcing), and every way to give the
+  radio service a device the relay serves is closed:
+  - a pseudo-terminal's slave can only be opened through devpts: a copy of
+    its node elsewhere (made with `mknod`, labelled `qemu_device`) answers
+    EIO;
+  - the radio service (`rild`) may not open devpts files (SELinux denies
+    it), devpts files can't be relabelled, and a private devpts mounted with
+    `context=u:object_r:qemu_device:s0` is refused (`associate`);
+  - the kernel has no CUSE and no legacy ptys.
+  Loosening the SELinux policy at run time (possible only under Magisk)
+  would allow it, but would change the device's security model to fake one
+  identifier, so Jidr doesn't.
+- API 30 images open the modem through a different channel, so the relay
+  wouldn't apply there either.
 
 How it's reached: the helper listens on the abstract Unix socket
 `@jidr-helper` (no file, no port on the guest's network) and serves only

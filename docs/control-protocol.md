@@ -567,6 +567,25 @@ Host RAM, the device budget and what each running device uses
 
 No params.
 
+### `identity.*`
+
+#### `identity.get`
+
+The device's Android ID and IMEI (no root needed)
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes | Device name or id. |
+
+#### `identity.set`
+
+Change the device's Android ID as every installed app reads it (needs Shell or Full root; restarts the Android framework; kept across cold boots) · long-running (job) · locks the device
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes | Device name or id (Shell root or Full root). |
+| `android_id` | string | yes | New Android ID: 16 hexadecimal digits. Every installed app reads it (its SSAID), as does `settings get secure android_id`. Restarts the Android framework. |
+
 ### `image.*`
 
 #### `image.install`
@@ -1216,4 +1235,5 @@ Save a snapshot of a running device · long-running (job) · locks the device
 | 0.1 (additive) | #26 (ADR-0003, D44): `root.helper.status {device}` → `{device, name, root_mode, helper: {version, protocol, sha256, pid, uid, selinux?, arch}, port}` starts the rooted on-device helper if needed (root provider). `network.shaping.get {device}` and `network.shaping.set {device, loss_pct}` (locks the device) → `{loss_pct, interfaces: [{name, qdisc?, loss_pct}]}` drop a percentage of outgoing packets through the helper (`tc … netem`, widgets provider; `loss_pct` is null when interfaces differ). They need root mode `adb` or `magisk` (`usage` otherwise, and when the kernel lacks netem, with `error.data.helper_error`); a helper that can't start as root is `root_failed`. No existing command changed. |
 | 0.1 (additive) | #72 (ADR-0004): `file.flash {device, path}` (root provider; long-running, locks the device, destructive) reads a local zip's file list and routes it: a Magisk or Zygisk module on a `magisk` device installs (`magisk --install-module`, cold boot, a check that Magisk loaded it) → `{device, kind, action: "module_installed", installed, module: {id, name, version, zygisk}, zygisk_enabled, note, verification}`; a module on any other device, or any other file, is copied to `/sdcard/Download/` → `{device, kind, action: "pushed", remote, note}`. `kind` is `magisk_module`, `zygisk_module` or `other`. Recovery, Riru and OTA/factory image zips are refused with `usage` and `error.data.kind` (`recovery`, `riru_module`, `image`), as are module zips with `module.prop` in a subfolder or an invalid or `jidr_` id. `root.module.install` runs the same checks before touching the device (it used to hand any zip to Magisk) and its result gains `module`, `zygisk_enabled` and `note`; existing fields are unchanged. |
 | 0.1 (additive) | #92 (D46, proposed): physical phones over plain adb, from the new `physical` provider in the daemon. `physical.list` → `[PhysicalDevice]` (`{serial, state: ready \| unauthorized \| offline \| no_permissions \| connecting \| other, connection: usb \| wifi, model?, manufacturer?, product?, android?, api?, abi?, battery?: {level, charging}, usb?, hint?}`), `physical.details {device}` (adds `screen: {width, height, density?}`), `physical.connect_info {device}` → `{serial, adb_path}`, `physical.screenshot {device, path?}` → `{path, width, height}`, `physical.record {device, path?, max_seconds?}` (long-running; `screenrecord`, at most 180 s) → `{path, seconds}` and `physical.record_stop {device}`, `physical.install`, `physical.push`, `physical.pull`, `physical.logcat` (same params and results as `file.install`, `file.push`, `file.pull`, `logcat.dump`), `physical.shell {device, command}` (destructive) → `{exit_code, stdout, stderr}`, `physical.reboot`, `physical.tap {device, x, y}`, `physical.swipe {device, x1, y1, x2, y2, duration_ms?}`, `physical.key {device, key}`, `physical.text {device, text}`. New events `physical.connected`, `physical.changed`, `physical.disconnected`. `logcat.follow` also accepts a ready phone's serial (its `logcat` events then carry the serial as `device`). No existing command's result changed. |
+| 0.1 (additive) | #19: `identity.get {device}` → `{android_id, imei}` (each null when unknown; no root needed) and `identity.set {device, android_id}` (a job; locks the device) → the same, widgets provider. `android_id` (16 hex digits, any case, returned in lower case) is given to every installed app as its SSAID through the rooted on-device helper (helper method `identity.android_id.set`, which restarts the Android framework) and then set as the global setting. It needs root mode `adb` or `magisk` (`usage` otherwise); a bad ID is `usage` with `error.data.field: "android_id"`. The IMEI is read only. No existing command changed. |
 | 0.1 (additive) | #17 (D44): `network.shaping.set` gains optional `dns` (`normal` \| `slow` \| `fail`) and `dns_delay_ms` (1–30000, default 3000; alone it means `slow`), and `loss_pct` becomes optional: a field left out keeps the device's current value, and giving none is `usage`. Both commands' results gain `dns` and `dns_delay_ms` (null when interfaces differ, or when DNS isn't `slow`), and each interface gains `dns` and `dns_delay_ms`. `Device` gains `network_shaping {loss_pct, dns, dns_delay_ms?}` (absent when off): what `set` stored, re-applied by the widgets boot hook after every boot (skipped when the kernel already has it; reported as `device.hook_failed` when the root mode is `none`). Clearing (`0` and `normal`) forgets it, and on a `none` device works without the helper, returning `interfaces: []`. The helper's protocol becomes 2 (internal). With no interface that has a default route (Wi-Fi and mobile data off, or not up yet), both commands now fail with `usage` instead of `unexpected` (`helper_error: "usage"`); and they also cover interfaces that still have Jidr's qdisc after losing their route, so clearing leaves none behind. No existing field changed meaning. |

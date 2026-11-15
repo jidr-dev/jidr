@@ -34,7 +34,7 @@ Tests named `*_emulator` run on a real emulator: on Linux KVM in CI (API 30, 33,
 | Baseband operator & SIM identity | Paid | ⏭️ | [#16](https://github.com/jidr-dev/jidr/issues/16); the phone number alone works natively |
 | Network Wi-Fi / mobile toggles, speed/delay profiles | Paid | ✅ | `widgets_core_commands` (Wi-Fi via `settings`, mobile data via the emulated radio and `network.get`, speed via `adb emu network status`) |
 | Network packet loss / bad DNS | Paid | ✅ | `crates/jidr-root/tests/helper_emulator.rs` `helper_starts_as_root_and_drops_packets` (netem loss, slow and failing DNS lookups, both back after a cold boot; API 33 and 35 in CI, `unsupported` on API 30); offline `crates/jidr-widgets/tests/shaping.rs` `shaping_is_reapplied_after_a_cold_boot`. Needs Shell or Full root and API 31+ ([#17](https://github.com/jidr-dev/jidr/issues/17)) |
-| Identifiers (Android ID, IMEI) | Free | ⏭️ | [#19](https://github.com/jidr-dev/jidr/issues/19) |
+| Identifiers (Android ID, IMEI) | Free | 🚧 | Android ID: `identity.set` gives every installed app the new ID (its SSAID) and sets the global value, through the on-device helper: `crates/jidr-widgets/tests/identity.rs` offline, `crates/jidr-root/tests/identity_emulator.rs` `android_id_reaches_apps_and_survives_a_cold_boot` (an app reads it, before and after a cold boot) (not run on CI yet). IMEI: shown by `identity.get`, but it can't be changed without modifying the image: the modem's IMEI is a constant and SELinux leaves no way to relay the radio's modem port (tried on API 35, see [root.md](root.md#identifiers-android-id-and-imei-19)), [#19](https://github.com/jidr-dev/jidr/issues/19) stays open for it |
 | Build props | Free | ✅ | `crates/jidr-root/tests/props_emulator.rs:61` `props_spoof_after_cold_boot_and_stock_after_revert` (Full-root devices only) |
 | Disk I/O limit | Free | ⏭️ | [#20](https://github.com/jidr-dev/jidr/issues/20) |
 | Camera / media injection | Paid | 🚧 | Host webcam as a camera at the next start: `widgets_core_commands` (`camera.set` → `-camera-back webcam0` in the launch args). Image and video files: ⏭️ [#21](https://github.com/jidr-dev/jidr/issues/21) |
@@ -56,7 +56,7 @@ Tests named `*_emulator` run on a real emulator: on Linux KVM in CI (API 30, 33,
 | USB phones next to the emulators | — (Jidr only) | 🚧 | `physical.*` over plain adb ([#92](https://github.com/jidr-dev/jidr/issues/92)): list with live plug/unplug events, readiness hints, screenshot, recording, input, install, push/pull, logcat, shell and reboot against a fake adb in `crates/jidr-daemon/tests/physical.rs`; parsing in `crates/jidr-adb/src/physical.rs` unit tests; the Phones group's goldens `phones-empty`, `phones-ready`, `phones-unauthorized`. `crates/jidr-daemon/tests/physical_device.rs` (`JIDR_TEST_PHONE_SERIAL`) hasn't run on a real phone yet. No root, snapshots or sensor widgets on phones |
 | Shell REPL (Genymotion Shell) | Free | ✅ | `jidr shell` ([#73](https://github.com/jidr-dev/jidr/issues/73)): `apps/jidr/tests/shell.rs` `piped_lines_run_with_the_current_device`, `a_script_stops_at_its_first_failure`, `source_runs_a_file_inside_the_shell`; device context and completion: `apps/jidr/src/shell/line.rs` `fills_in_the_current_device`, `apps/jidr/src/shell/complete.rs` `completes_commands_devices_and_methods` |
 
-**Breadth:** 30 / 44 ✅ (68%). Of the other 14: 8 🚧, 5 ⏭️, 1 ❌. Six rows are Jidr-only (not in Genymotion); three of them are ✅.
+**Breadth:** 30 / 44 ✅ (68%). Of the other 14: 9 🚧, 4 ⏭️, 1 ❌. Six rows are Jidr-only (not in Genymotion); three of them are ✅.
 
 **Ready for real work: about 70% for the core use case, lower for Genymotion power users.**
 
@@ -65,5 +65,5 @@ Tests named `*_emulator` run on a real emulator: on Linux KVM in CI (API 30, 33,
   - There's no signed release yet; v0.1.0 is in preparation.
   - Quick boot is slower than its target.
   - A few emulator tests are still flaky on shared CI runners.
-  - Several paid-tier niches are partial or post-MVP: motion presets, file-based camera, microphone injection (not yet run on an emulator), biometric scenarios, network loss and DNS, identifiers, disk limits, gamepad.
+  - Several paid-tier niches are partial or post-MVP: motion presets, file-based camera, microphone injection (not yet run on an emulator), biometric scenarios, network loss and DNS, identifiers (the IMEI can't be changed), disk limits, gamepad.
   - Clipboard sharing in the player isn't finished.

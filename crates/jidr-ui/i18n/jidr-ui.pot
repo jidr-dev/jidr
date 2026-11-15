@@ -1325,6 +1325,10 @@ msgstr ""
 msgid "Choose a GPX or KML route"
 msgstr ""
 
+#: src/widgets/identity.rs
+msgid "An Android ID is 16 hexadecimal digits (0–9 and a–f)."
+msgstr ""
+
 #: src/wizard/mod.rs
 msgid "Found · used read-only"
 msgstr ""
@@ -2246,6 +2250,38 @@ msgstr ""
 
 #: ui/widgets/panels.slint
 msgid "Send SMS"
+msgstr ""
+
+#: ui/widgets/panels.slint
+msgid "Identifiers"
+msgstr ""
+
+#: ui/widgets/panels.slint
+msgid "Android ID"
+msgstr ""
+
+#: ui/widgets/panels.slint
+msgid "16 hex digits"
+msgstr ""
+
+#: ui/widgets/panels.slint
+msgid "Random"
+msgstr ""
+
+#: ui/widgets/panels.slint
+msgid "Apply"
+msgstr ""
+
+#: ui/widgets/panels.slint
+msgid "IMEI"
+msgstr ""
+
+#: ui/widgets/panels.slint
+msgid "Applying… Android restarts, and the app you're testing with it."
+msgstr ""
+
+#: ui/widgets/panels.slint
+msgid "Needs Shell or Full root. Apps installed later get their own ID. The emulator's IMEI can't be changed."
 msgstr ""
 
 #: ui/widgets/panels.slint
