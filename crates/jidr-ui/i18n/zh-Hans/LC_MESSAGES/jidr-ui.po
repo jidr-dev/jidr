@@ -1327,6 +1327,10 @@ msgstr "选择 GPX 或 KML 路线"
 msgid "An Android ID is 16 hexadecimal digits (0–9 and a–f)."
 msgstr "Android ID 由 16 位十六进制数字组成（0–9 和 a–f）。"
 
+#: src/widgets/mod.rs
+msgid "The game controller was disconnected from this Mac."
+msgstr "游戏控制器已与这台 Mac 断开连接。"
+
 #: src/wizard/mod.rs
 msgid "Found · used read-only"
 msgstr "已找到 · 以只读方式使用"
@@ -2378,6 +2382,18 @@ msgstr "无"
 #: ui/widgets/panels.slint
 msgid "Applies the next time the device starts."
 msgstr "设备下次启动时生效。"
+
+#: ui/widgets/panels.slint
+msgid "Game controller"
+msgstr "游戏控制器"
+
+#: ui/widgets/panels.slint
+msgid "Use this Mac's controller"
+msgstr "使用这台 Mac 的游戏控制器"
+
+#: ui/widgets/panels.slint
+msgid "Android sees an Xbox 360 controller."
+msgstr "Android 会将其识别为 Xbox 360 控制器。"
 
 #: ui/widgets/panels.slint
 msgid "Latitude"

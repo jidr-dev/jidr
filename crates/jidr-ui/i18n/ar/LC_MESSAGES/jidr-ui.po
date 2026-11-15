@@ -1385,6 +1385,10 @@ msgstr "اختر مسار GPX أو KML"
 msgid "An Android ID is 16 hexadecimal digits (0–9 and a–f)."
 msgstr "يتكوّن Android ID من 16 رقمًا ستّ عشريًا: من 0 إلى 9 ومن a إلى f."
 
+#: src/widgets/mod.rs
+msgid "The game controller was disconnected from this Mac."
+msgstr "فُصلت وحدة تحكم الألعاب عن جهاز ماك هذا."
+
 #: src/wizard/mod.rs
 msgid "Found · used read-only"
 msgstr "موجود · يُستخدم للقراءة فقط"
@@ -2463,6 +2467,18 @@ msgstr "بلا كاميرا"
 #: ui/widgets/panels.slint
 msgid "Applies the next time the device starts."
 msgstr "يُطبَّق في المرة القادمة التي يُشغَّل فيها الجهاز."
+
+#: ui/widgets/panels.slint
+msgid "Game controller"
+msgstr "وحدة تحكم الألعاب"
+
+#: ui/widgets/panels.slint
+msgid "Use this Mac's controller"
+msgstr "استخدام وحدة التحكم المتصلة بجهاز ماك هذا"
+
+#: ui/widgets/panels.slint
+msgid "Android sees an Xbox 360 controller."
+msgstr "يتعرّف Android عليها كوحدة تحكم Xbox 360."
 
 #: ui/widgets/panels.slint
 msgid "Latitude"

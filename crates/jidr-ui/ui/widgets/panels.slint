@@ -365,7 +365,7 @@ export component MorePanel inherits Rectangle {
     in property <WidgetsVm> vm;
     callback action(string, string);
     Scroll {
-        content-height: 1290px;
+        content-height: 1370px;
         VerticalLayout {
             padding: 16px;
             padding-left: 14px;
@@ -523,6 +523,17 @@ export component MorePanel inherits Rectangle {
                     changed(i) => { root.action("camera.back", i); }
                 }
                 Hint { height: 15px; text: @tr("Applies the next time the device starts."); }
+            }
+            // Game controller (#23).
+            VerticalLayout {
+                spacing: 8px;
+                Cap { text: @tr("Game controller"); }
+                ToggleRow {
+                    text: @tr("Use this Mac's controller");
+                    hint: @tr("Android sees an Xbox 360 controller.");
+                    checked: root.vm.gamepad;
+                    toggled(v) => { root.action("input.gamepad", v ? "true" : "false"); }
+                }
             }
         }
     }

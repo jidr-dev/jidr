@@ -250,6 +250,8 @@ export struct WidgetsVm {
     imei-now: string,
     android-id: string,
     identity-busy: bool,
+    /// A game controller on this Mac drives the device (#23).
+    gamepad: bool,
 }
 
 /// How a physical phone's state looks (#92): ready, on its way (connecting),
