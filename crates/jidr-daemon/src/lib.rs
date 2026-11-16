@@ -17,6 +17,7 @@ pub mod protocol_doc;
 pub mod registry;
 pub use jidr_core::rpc;
 pub mod server;
+pub mod simulator;
 pub mod state;
 pub mod store;
 pub mod sync;
@@ -99,6 +100,7 @@ impl DaemonBuilder {
         registry.register(Arc::new(jobs::JobsProvider::new(jobs.clone())))?;
         registry.register(Arc::new(pool::PoolProvider::new(state.clone())))?;
         registry.register(Arc::new(physical::PhysicalProvider::new()))?;
+        registry.register(Arc::new(simulator::SimulatorProvider::new(state.clone())))?;
         registry.register(Arc::new(sync::SyncProvider::new(state.clone())))?;
         for p in self.providers {
             registry.register(p)?;
@@ -210,7 +212,9 @@ impl Daemon {
                 let mut tick = tokio::time::interval(leases::REAP_EVERY);
                 loop {
                     tick.tick().await;
-                    state.reap(chrono::Utc::now()).await;
+                    let now = chrono::Utc::now();
+                    state.reap(now).await;
+                    state.reap_simulators(now).await;
                 }
             })
         };

@@ -13,6 +13,7 @@ publish.workspace = true
 jidr-core.workspace = true
 jidr-sdk.workspace = true
 jidr-adb.workspace = true
+jidr-simctl.workspace = true
 jidr-backend.workspace = true
 tokio.workspace = true
 serde.workspace = true
@@ -24,6 +25,7 @@ tracing.workspace = true
 async-trait.workspace = true
 zip.workspace = true
 notify.workspace = true
+tempfile.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

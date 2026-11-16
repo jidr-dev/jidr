@@ -8,6 +8,7 @@ pub mod paths;
 pub mod physical;
 pub mod provider;
 pub mod rpc;
+pub mod simulator;
 pub mod track;
 
 pub use cancel::Cancel;
@@ -16,4 +17,7 @@ pub use model::*;
 pub use paths::JidrPaths;
 pub use physical::{
     PhoneBattery, PhoneConnectInfo, PhoneConnection, PhoneScreen, PhoneState, PhysicalDevice,
+};
+pub use simulator::{
+    SimConnectInfo, SimDeviceTypeInfo, SimHolder, SimLease, SimRuntimeInfo, SimState, Simulator,
 };

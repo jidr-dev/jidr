@@ -101,13 +101,17 @@ fn short_id() -> String {
 }
 
 impl State {
+    /// Pool and simulator leases (D42, D50).
     pub fn lease_count(&self) -> usize {
-        lock(&self.leases).len()
+        lock(&self.leases).len() + self.sims.lease_count()
     }
 
-    /// A client connection closed: its leases expire after the grace period.
+    /// A client connection closed: its pool and simulator leases expire after
+    /// the grace period.
     pub fn connection_closed(&self, conn: u64) {
-        lock(&self.leases).disconnected(conn, Utc::now());
+        let now = Utc::now();
+        lock(&self.leases).disconnected(conn, now);
+        self.sims.disconnected(conn, now);
     }
 
     fn base(&self, selector: &str) -> JidrResult<Device> {

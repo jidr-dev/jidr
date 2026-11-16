@@ -82,6 +82,8 @@ pub struct State {
     /// Running devices launched from a named snapshot (`-no-snapshot-save`):
     /// their stop saves `default_boot` explicitly.
     resumed: Mutex<std::collections::HashSet<Uuid>>,
+    /// iOS simulators Jidr created or leased (D50).
+    pub(crate) sims: crate::simulator::SimHub,
 }
 
 /// Latest and peak footprint of a device's current run, in MB.
@@ -135,6 +137,7 @@ impl State {
         let store = DeviceStore::load(config.paths.devices_file())?;
         let settings = load_settings(&config.paths.settings_file());
         let (events, _) = broadcast::channel(1024);
+        let sims = crate::simulator::SimHub::load(config.paths.data.join("simulators.json"));
         Ok(Arc::new_cyclic(|me| Self {
             paths: config.paths,
             studio_sdk: config.studio_sdk,
@@ -155,6 +158,7 @@ impl State {
             activity: Mutex::new(HashMap::new()),
             leases: Mutex::new(crate::leases::Leases::default()),
             resumed: Mutex::new(std::collections::HashSet::new()),
+            sims,
         }))
         .inspect(|s| s.adopt_pool_clones())
     }
@@ -195,6 +199,15 @@ impl State {
                 expected_mb: self.expected_mb(d),
                 measured_mb: samples.get(&d.id).map(|f| f.current).filter(|m| *m > 0),
             })
+            .chain(self.sims.booted().into_iter().filter_map(|(udid, name)| {
+                // Booted iOS simulators count too (D50), at their expected cost.
+                Some(DeviceUse {
+                    id: Uuid::parse_str(&udid).ok()?,
+                    name,
+                    expected_mb: crate::simulator::SIM_EXPECTED_MB,
+                    measured_mb: None,
+                })
+            }))
             .collect();
         Ok(Budget::new(mem, self.settings().budget_percent, used))
     }
