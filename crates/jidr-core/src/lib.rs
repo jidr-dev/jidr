@@ -8,6 +8,7 @@ pub mod paths;
 pub mod physical;
 pub mod provider;
 pub mod rpc;
+pub mod track;
 
 pub use cancel::Cancel;
 pub use error::{ErrorCode, JidrError, JidrResult, ResultExt};
