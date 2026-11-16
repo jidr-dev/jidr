@@ -98,6 +98,14 @@ pub enum Cmd {
         #[command(subcommand)]
         cmd: PhoneCmd,
     },
+    /// iOS simulators on this Mac (needs Xcode): list, boot, lease one per
+    /// agent session, screenshots and recordings, apps, files, location,
+    /// appearance, permissions, push notifications.
+    #[command(alias = "simulator")]
+    Sim {
+        #[command(subcommand)]
+        cmd: SimCmd,
+    },
     /// List and install system images.
     Image {
         #[command(subcommand)]
@@ -507,6 +515,225 @@ pub enum PhoneCmd {
     Key { phone: String, key: String },
     /// Type text into the focused field (printable ASCII).
     Text { phone: String, text: String },
+}
+
+/// `jidr sim …`: every command takes the simulator's UDID (or its name,
+/// when only one simulator has it).
+#[derive(Debug, Subcommand)]
+pub enum SimCmd {
+    /// Simulators in Xcode's device set, with their state, runtime and
+    /// whether Jidr created or leased them.
+    #[command(alias = "ls")]
+    List,
+    /// One simulator's details.
+    Details { sim: String },
+    /// Installed simulator runtimes.
+    Runtimes,
+    /// Device types (iPhone 17 Pro, iPad Air…).
+    DeviceTypes,
+    /// Download a simulator runtime with Xcode (about 8 GB).
+    RuntimeDownload {
+        /// iOS, tvOS, watchOS or visionOS.
+        #[arg(default_value = "iOS")]
+        platform: String,
+        /// A specific OS version, e.g. 26.1.
+        #[arg(long)]
+        version: Option<String>,
+    },
+    /// Create a simulator (newest iPhone on the newest iOS runtime unless named).
+    Create {
+        name: String,
+        /// Device type name or id, e.g. "iPhone 17 Pro".
+        #[arg(long = "type")]
+        device_type: Option<String>,
+        /// Runtime name, version or id, e.g. 26.1.
+        #[arg(long)]
+        runtime: Option<String>,
+        /// Boot it once created.
+        #[arg(long)]
+        boot: bool,
+    },
+    /// Get a fresh, booted simulator of your own; it's shut down and deleted
+    /// when the lease ends. Prints its UDID.
+    Lease {
+        /// Device type name or id.
+        #[arg(long = "type")]
+        device_type: Option<String>,
+        /// Runtime name, version or id.
+        #[arg(long)]
+        runtime: Option<String>,
+        /// The simulator's name.
+        #[arg(long)]
+        name: Option<String>,
+        /// Lease lifetime: `90s`, `30m`, `2h`.
+        #[arg(long, default_value = "2h")]
+        ttl: String,
+        /// Boot even past the host RAM budget.
+        #[arg(long)]
+        force: bool,
+    },
+    /// End a lease (by lease id or simulator): the simulator is deleted.
+    Release { lease_or_sim: String },
+    /// Current simulator leases.
+    Leases,
+    /// Copy a shut-down simulator.
+    Clone { sim: String, name: String },
+    /// Rename a simulator.
+    Rename { sim: String, name: String },
+    /// Boot a simulator and wait until it's ready.
+    Boot {
+        sim: String,
+        /// Boot even past the host RAM budget.
+        #[arg(long)]
+        force: bool,
+    },
+    /// Shut a simulator down.
+    Shutdown { sim: String },
+    /// Erase apps, data and settings.
+    Erase {
+        sim: String,
+        /// Needed for a simulator Jidr didn't create.
+        #[arg(long)]
+        force: bool,
+    },
+    /// Delete a simulator.
+    #[command(alias = "rm")]
+    Delete {
+        sim: String,
+        /// Needed for a simulator Jidr didn't create.
+        #[arg(long)]
+        force: bool,
+    },
+    /// Show it in Xcode's Simulator app.
+    Open { sim: String },
+    /// Save a PNG of the screen (default ~/Pictures/Jidr).
+    Screenshot {
+        sim: String,
+        #[arg(long, short)]
+        output: Option<PathBuf>,
+    },
+    /// Record the screen (QuickTime) until Ctrl-C.
+    Record {
+        sim: String,
+        /// Where to save it (default ~/Movies/Jidr).
+        #[arg(long, short)]
+        output: Option<PathBuf>,
+        /// Stop after this many seconds.
+        #[arg(long)]
+        seconds: Option<u32>,
+    },
+    /// Install a simulator build (.app, or a .zip holding one).
+    Install { sim: String, app: PathBuf },
+    /// Uninstall an app by bundle id.
+    Uninstall { sim: String, bundle: String },
+    /// Installed apps.
+    Apps { sim: String },
+    /// Launch an app by bundle id.
+    Launch {
+        sim: String,
+        bundle: String,
+        /// Quit it first if it's running.
+        #[arg(long)]
+        relaunch: bool,
+        /// Arguments for the app.
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Quit an app.
+    Terminate { sim: String, bundle: String },
+    /// Copy a file into an app's data container (default Documents/).
+    Push {
+        sim: String,
+        bundle: String,
+        local: PathBuf,
+        remote: Option<String>,
+    },
+    /// Copy a file out of an app's data container.
+    Pull {
+        sim: String,
+        bundle: String,
+        remote: String,
+        local: PathBuf,
+    },
+    /// Recent lines of the simulator's log.
+    Log {
+        sim: String,
+        /// How far back, in seconds (default 60).
+        #[arg(long)]
+        seconds: Option<u32>,
+        /// Only the last N lines.
+        #[arg(long, short = 'n')]
+        lines: Option<u32>,
+        /// A `log` predicate, e.g. 'process == "MyApp"'.
+        #[arg(long)]
+        predicate: Option<String>,
+    },
+    /// Open a URL or deep link.
+    OpenUrl { sim: String, url: String },
+    /// Set the simulated location.
+    Location {
+        sim: String,
+        #[arg(allow_hyphen_values = true)]
+        lat: f64,
+        #[arg(allow_hyphen_values = true)]
+        lon: f64,
+    },
+    /// Move along a GPX or KML route.
+    Route {
+        sim: String,
+        file: PathBuf,
+        /// Metres per second (default 20).
+        #[arg(long)]
+        speed: Option<f64>,
+    },
+    /// Stop a route and clear the simulated location.
+    LocationClear { sim: String },
+    /// Show or set light or dark mode.
+    Appearance {
+        sim: String,
+        #[arg(value_parser = ["light", "dark"])]
+        mode: Option<String>,
+    },
+    /// Override the status bar (or --clear).
+    StatusBar {
+        sim: String,
+        /// e.g. 9:41.
+        #[arg(long)]
+        time: Option<String>,
+        /// 0–100.
+        #[arg(long)]
+        battery: Option<u8>,
+        /// e.g. wifi, lte, 5g, hide.
+        #[arg(long)]
+        network: Option<String>,
+        /// Remove every override.
+        #[arg(long)]
+        clear: bool,
+    },
+    /// Grant, revoke or reset a permission: `privacy <sim> grant photos com.example.app`.
+    Privacy {
+        sim: String,
+        #[arg(value_parser = ["grant", "revoke", "reset"])]
+        action: String,
+        service: String,
+        bundle: Option<String>,
+    },
+    /// Send a push notification (a JSON file with an `aps` object).
+    Notify {
+        sim: String,
+        bundle: String,
+        payload: PathBuf,
+    },
+    /// Show the pasteboard text, or set it.
+    Pasteboard { sim: String, text: Option<String> },
+    /// Add photos, videos or contacts.
+    AddMedia {
+        sim: String,
+        #[arg(required = true)]
+        files: Vec<PathBuf>,
+    },
+    /// Trust a CA certificate (for a debugging proxy).
+    TrustCert { sim: String, cert: PathBuf },
 }
 
 #[derive(Debug, Subcommand)]
