@@ -1,6 +1,6 @@
 ---
 name: jidr-app-testing
-description: "Test an Android app on a Jidr emulator: install an APK or run a Flutter or React Native app on the device's adb serial, then check a flow with screenshot, tap, swipe, type and the UI tree, and clean up the devices you created. Use when the user asks to run their Android app on an emulator and check that a screen or flow works, reproduce a bug on a device, or verify a UI change. Needs the jidr skill for creating and starting devices."
+description: "Test an Android app on a Jidr emulator: install an APK or run a Flutter or React Native app on the device's adb serial, then check a flow with screenshot, tap, swipe, type and the UI tree, and clean up the devices you created. Also covers iOS apps on a Jidr-leased iOS simulator (macOS with Xcode). Use when the user asks to run their Android or iOS app on an emulator and check that a screen or flow works, reproduce a bug on a device, or verify a UI change. Needs the jidr skill for creating and starting devices."
 ---
 
 # Testing an app on a Jidr device
@@ -67,6 +67,17 @@ Tips:
 - To retry a flow from the same state, save a snapshot before it and load it between tries (`jidr snapshot save Phone start`, `jidr snapshot load Phone start`).
 
 Report what you checked with the final screenshot, and the log lines for any failure.
+
+## An iOS app on a simulator
+
+On a Mac with Xcode, lease a simulator of your own (`jidr --json sim lease`, or the MCP tool `simulator_lease`) and use its `udid` as `device` everywhere. Build the app for the simulator (for example `xcodebuild -scheme MyApp -sdk iphonesimulator -destination id=<udid> build`, or `flutter build ios --simulator`), then install and launch it:
+
+```bash
+jidr sim install 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30 build/Build/Products/Debug-iphonesimulator/MyApp.app
+jidr sim launch 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30 com.example.myapp
+```
+
+The loop is the same: `screenshot`, `ui_dump` (with MCP; `jidr sim tree` with the CLI) to find elements by `label` or `identifier`, then `tap`, `swipe` and `type_text`. Frames in the tree are screenshot pixels: tap the centre. There's no Back key on iOS: tap the app's own back button, or `press_key GoHome`. `type_text` types any text. Grant permissions up front instead of tapping the prompt with `command_run simulator.privacy {device, action: "grant", service: "photos", bundle}`, open deep links with `simulator.open_url`, and read the log with `logcat_tail` (`jidr sim log`). Release the simulator when done (`simulator_release`, or `jidr sim release`).
 
 ## 3. Clean up
 

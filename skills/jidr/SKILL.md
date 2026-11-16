@@ -83,21 +83,21 @@ A phone listed as `unauthorized` needs the user: they unlock it and tap Allow on
 On a Mac with full Xcode, Jidr also drives iOS simulators. Get one of your own, so parallel sessions never share a simulator:
 
 ```bash
-jidr --json sim lease                           # creates and boots a fresh iPhone; result.udid is yours
-jidr sim screenshot 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30 -o shot.png          # read the PNG to see the screen
-jidr sim install 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30 build/MyApp.app         # a simulator build (.app or a zip of one), not an .ipa
+jidr --json sim lease                         # creates and boots a fresh iPhone; result.udid is yours
+jidr sim screenshot 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30 -o shot.png
+jidr sim install 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30 build/MyApp.app
 jidr sim launch 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30 com.example.myapp
-jidr sim tap 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30 600 1400                    # screenshot pixels; also swipe, text, key, rotate
-jidr sim tree 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30                            # the UI elements of the app in front, frames in pixels
+jidr sim tap 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30 600 1400
+jidr sim tree 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30
 jidr sim open-url 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30 myapp://settings
-jidr sim release 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30                         # shut down and deleted
+jidr sim release 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30
 ```
 
-`0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30` stands for the UDID from `jidr sim lease` (or `jidr sim list`). Pick a device with `--type "iPad Air 11-inch (M3)"` or a runtime with `--runtime 26.1` (`jidr sim device-types`, `jidr sim runtimes`). The first tap, text or tree on a simulator builds Jidr's XCTest runner (a minute or two, once per Xcode version); `jidr sim lease` does it for you. A CLI lease lasts 2 hours (`--ttl`); with MCP, `simulator_lease` lasts as long as your session. Tell the user they can watch it in the Jidr app or with `jidr sim open 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30`. Never drive, erase or delete simulators you didn't lease: the others are the user's.
+`0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30` stands for the UDID from `jidr sim lease` (or `jidr sim list`). Read the screenshot's PNG to see the screen. `install` takes a simulator build (an `.app`, or a zip of one), not an App Store `.ipa`. `tap` and `swipe` take screenshot pixels; there are also `text`, `key` (`home`, `enter`, `backspace`), `rotate` and `tree`, the UI elements of the app in front with frames in pixels. Pick a device with `--type "iPad Air 11-inch (M3)"` or a runtime with `--runtime 26.1` (`jidr sim device-types`, `jidr sim runtimes`). The first tap, text or tree on a simulator builds Jidr's XCTest runner (a minute or two, once per Xcode version); `jidr sim lease` does it for you. A CLI lease lasts 2 hours (`--ttl`); with MCP, `simulator_lease` lasts as long as your session. `jidr sim release` shuts it down and deletes it. Tell the user they can watch it in the Jidr app's Simulators list or with `jidr sim open 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30`. Never drive, erase or delete simulators you didn't lease: the others are the user's.
 
 ## MCP instead of the CLI
 
-If the Jidr MCP server is connected (Claude Code: `claude mcp add jidr -- jidr mcp`), its tools do the same: `command_run` runs any protocol command (`device.create`, `device.start`…), and `screenshot`, `tap`, `swipe`, `type_text`, `press_key`, `ui_dump` and `logcat_tail` drive a device directly (or a USB phone, by its serial). `screenshot` returns the image itself, so you don't need to read a file. Devices created through `command_run device.create` are agent-owned automatically.
+If the Jidr MCP server is connected (Claude Code: `claude mcp add jidr -- jidr mcp`), its tools do the same: `command_run` runs any protocol command (`device.create`, `device.start`…), and `screenshot`, `tap`, `swipe`, `type_text`, `press_key`, `ui_dump` and `logcat_tail` drive a device directly (or a USB phone, by its serial, or an iOS simulator, by its UDID). `simulator_lease` and `simulator_release` get and give back an iOS simulator of your own. `screenshot` returns the image itself, so you don't need to read a file. Devices and simulators created through `command_run device.create` or `simulator.create` are agent-owned automatically.
 
 ## Exit codes (with `--json`)
 

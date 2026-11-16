@@ -25,6 +25,7 @@ Or [download the DMG](https://github.com/jidr-dev/jidr/releases/latest). Site: [
 - **Build identity:** set build properties (model, brand, fingerprint…) on Full-root devices.
 - **CLI:** every action is a `jidr` command, with `--json` output and stable exit codes for CI.
 - **MCP server:** `jidr mcp` lets Claude and other MCP clients see and drive a device: screenshot, tap, type, UI tree, logs.
+- **iOS simulators (macOS with Xcode):** list, boot and drive the simulators Xcode has, preview them in the app, and give each agent session a fresh simulator of its own (`jidr sim lease`, or the `simulator_lease` MCP tool) that's deleted when the session ends.
 - **Languages:** the app is in English, العربية (right to left), Español, 简体中文 and Português (Brasil). It follows your Mac's preferred languages, or pick one in Settings › General. The CLI and MCP stay in English.
 
 No accounts, no telemetry, no paid tier.
@@ -63,7 +64,7 @@ claude mcp add jidr -- jidr mcp
 
 On Linux it's the same command, with `jidr` on your `PATH`. For Claude Desktop on a Mac, open `jidr-mcp-<version>-darwin-arm64.mcpb` from the [latest release](https://github.com/jidr-dev/jidr/releases/latest). Jidr is also in the [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.jidr-dev/jidr`. [docs/mcp.md](docs/mcp.md) lists the tools.
 
-Agent skills teach Claude Code, Cursor, Codex and other agents to create and drive Jidr devices with the CLI (`jidr`), to test an app on them (`jidr-app-testing`), to get devices of their own without crowding the machine (`jidr-agent-devices`) and to root them, install Magisk modules and intercept HTTPS (`jidr-root`). Install them with the open [skills](https://skills.sh) CLI:
+Agent skills teach Claude Code, Cursor, Codex and other agents to create and drive Jidr devices with the CLI (`jidr`), to test an app on them (`jidr-app-testing`), to get devices and iOS simulators of their own without crowding the machine (`jidr-agent-devices`) and to root them, install Magisk modules and intercept HTTPS (`jidr-root`). Install them with the open [skills](https://skills.sh) CLI:
 
 ```bash
 npx skills add jidr-dev/jidr
