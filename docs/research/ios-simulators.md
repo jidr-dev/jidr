@@ -1,6 +1,6 @@
 # Research: iOS Simulators in Jidr
 
-- **Status:** research only, no decision yet. Nothing here changes a `D<n>` row.
+- **Status:** decided as D50 (2026-11-16). The maintainer chose phases 1 and 2 plus input through an XCTest runner (phase 3) in one go, with simulators in Xcode's own set and one lease per agent session. The XCTest-runner spike's numbers go in `helpers/jidr-sim-runner/README.md`.
 - **Date:** 2026-11-16
 - **Question:** can Jidr show and drive iOS Simulators on macOS next to its Android emulators and USB phones (D46), "the way simslim does", and how would that fit the daemon, CLI, MCP and the desktop app?
 

@@ -1,6 +1,6 @@
 ---
 name: jidr
-description: "Run, watch and drive Android emulators with Jidr (CLI `jidr`, the Jidr desktop app, MCP server `jidr mcp`). Use when the user mentions Jidr or a Jidr device, or asks for an Android phone or tablet emulator to run something on, an emulator screenshot, logcat, rotation, snapshots, or starting and stopping a device. Also covers USB-connected physical phones (`jidr phone`). For testing an app's flows on a device, also load jidr-app-testing."
+description: "Run, watch and drive Android emulators with Jidr (CLI `jidr`, the Jidr desktop app, MCP server `jidr mcp`). Use when the user mentions Jidr or a Jidr device, or asks for an Android phone or tablet emulator to run something on, an emulator screenshot, logcat, rotation, snapshots, or starting and stopping a device. Also covers USB-connected physical phones (`jidr phone`) and iOS simulators on a Mac with Xcode (`jidr sim`): use it when asked to boot or test on an iOS simulator with Jidr. For testing an app's flows on a device, also load jidr-app-testing."
 ---
 
 # Jidr
@@ -77,6 +77,23 @@ jidr phone logcat R5CT40ABCDE -n 200
 `R5CT40ABCDE` stands for the serial from `jidr phone list`; the model name works too when only one connected phone has it.
 
 A phone listed as `unauthorized` needs the user: they unlock it and tap Allow on the USB debugging prompt. A phone is the user's own device: use it only when they ask, never reboot it or run destructive shell commands on it without asking, and keep files you push under `/sdcard/Download/`.
+
+## iOS simulators
+
+On a Mac with full Xcode, Jidr also drives iOS simulators. Get one of your own, so parallel sessions never share a simulator:
+
+```bash
+jidr --json sim lease                           # creates and boots a fresh iPhone; result.udid is yours
+jidr sim screenshot 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30 -o shot.png          # read the PNG to see the screen
+jidr sim install 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30 build/MyApp.app         # a simulator build (.app or a zip of one), not an .ipa
+jidr sim launch 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30 com.example.myapp
+jidr sim tap 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30 600 1400                    # screenshot pixels; also swipe, text, key, rotate
+jidr sim tree 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30                            # the UI elements of the app in front, frames in pixels
+jidr sim open-url 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30 myapp://settings
+jidr sim release 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30                         # shut down and deleted
+```
+
+`0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30` stands for the UDID from `jidr sim lease` (or `jidr sim list`). Pick a device with `--type "iPad Air 11-inch (M3)"` or a runtime with `--runtime 26.1` (`jidr sim device-types`, `jidr sim runtimes`). The first tap, text or tree on a simulator builds Jidr's XCTest runner (a minute or two, once per Xcode version); `jidr sim lease` does it for you. A CLI lease lasts 2 hours (`--ttl`); with MCP, `simulator_lease` lasts as long as your session. Tell the user they can watch it in the Jidr app or with `jidr sim open 0D3F5A1C-7E2B-4C91-9A64-2B8E1F6D7C30`. Never drive, erase or delete simulators you didn't lease: the others are the user's.
 
 ## MCP instead of the CLI
 

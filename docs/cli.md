@@ -238,6 +238,23 @@ jidr phone shell R5CT1234ABC                   # interactive adb shell
 
 Every command takes the phone's adb serial, or its model when only one connected phone has it. A phone that hasn't accepted this Mac's RSA key is listed as `unauthorized` and every other command exits 3 with what to do: unlock the phone and tap Allow on the "Allow USB debugging?" prompt. Phones paired for wireless debugging show up too (`connection: wifi`). Root modes, snapshots, the sensor and network widgets and hibernate are emulator-only. Under the hood these are the `physical.*` protocol commands (`jidr call physical.list`).
 
+## iOS simulators
+
+On a Mac with full Xcode, `jidr sim` shows and drives the simulators in Xcode's own device set (D50):
+
+```bash
+jidr sim list                                   # booted ones first; JIDR says jidr, agent or lease
+jidr sim lease                                  # a fresh, booted simulator of your own; prints its UDID
+jidr sim screenshot <udid> -o shot.png
+jidr sim install <udid> build/MyApp.app         # a simulator build, or a zip of one
+jidr sim launch <udid> com.example.app
+jidr sim tap <udid> 600 1400                    # screenshot pixels; also swipe, text, key, rotate, tree
+jidr sim open <udid>                            # show it in Simulator
+jidr sim release <udid>                         # shut it down and delete it
+```
+
+Every command takes the UDID, or the name when only one simulator has it. `jidr sim lease` lasts 2 hours by default (`--ttl`); agents use the MCP tool `simulator_lease` instead, whose lease ends with their session. Jidr only erases or deletes simulators it created, unless you pass `--force`. Input (`tap`, `swipe`, `text`, `key`, `rotate`, `tree`) goes through Jidr's XCTest runner, which is built on this Mac the first time (a minute or two, once per Xcode version). There's also `runtimes`, `runtime-download`, `create`, `clone`, `boot`, `shutdown`, `apps`, `push`, `pull`, `log`, `open-url`, `location`, `route` (GPX or KML), `appearance`, `status-bar`, `privacy`, `notify` (push notifications), `pasteboard`, `add-media` and `trust-cert`; `jidr sim --help` lists them. Under the hood these are the `simulator.*` protocol commands.
+
 ## Licenses (D8)
 
 Images and the emulator are downloaded from Google on your machine, after you accept their license. On a terminal, `jidr image install` shows each license and asks. Headless, `--accept-licenses` prints each license id and the SHA-256 of its text, then records your consent. Read the texts first with `jidr sdk licenses <package>`. When a license text changes, Jidr asks again.
