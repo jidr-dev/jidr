@@ -67,9 +67,12 @@ pub fn wire(ctx: &Rc<Ctx>) {
                 st.phone_open = false;
             }
             st.selected_phone = serial;
+            st.selected_sim = None;
+            st.sim_open = false;
         }
         c.rerender();
         sync(&c);
+        crate::simulators::sync(&c);
     });
 
     let c = ctx.clone();

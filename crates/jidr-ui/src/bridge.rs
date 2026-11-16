@@ -40,6 +40,8 @@ pub struct Data {
     pub budget: Option<HostBudget>,
     /// USB phones adb sees (`physical.list`, #92); empty from an older daemon.
     pub phones: Vec<jidr_core::PhysicalDevice>,
+    /// iOS simulators the sidebar shows (D50); empty without Xcode.
+    pub sims: Vec<jidr_core::Simulator>,
 }
 
 pub enum Update {
@@ -58,6 +60,9 @@ struct Cache {
     boot: HashMap<Uuid, f32>,
     /// `physical.details` screens by serial, until the phone changes.
     screens: HashMap<String, Option<jidr_core::PhoneScreen>>,
+    /// `simulator.list`, until a `simulator.*` event (listing runs simctl
+    /// three times).
+    sims: Option<Vec<jidr_core::Simulator>>,
 }
 
 pub struct Bridge {
@@ -147,9 +152,17 @@ impl Bridge {
     /// health check fails.
     async fn session(&self, c: &Arc<Client>, sink: &Sink, cache: &mut Cache) -> JidrResult<()> {
         let mut events = c
-            .subscribe(&["device.", "job.", "pool.", "physical.", "file.sync."])
+            .subscribe(&[
+                "device.",
+                "job.",
+                "pool.",
+                "physical.",
+                "file.sync.",
+                "simulator.",
+            ])
             .await?;
         cache.details.clear();
+        cache.sims = None;
         if let Ok(p) = c
             .call_as::<_, Vec<HardwareProfile>>("profile.list", json!({}))
             .await
@@ -213,6 +226,10 @@ impl Bridge {
                 }
                 true
             }
+            t if t.starts_with("simulator.") => {
+                cache.sims = None;
+                true
+            }
             t if t.starts_with("physical.") => {
                 if let Some(serial) = ev.data.get("serial").and_then(Value::as_str) {
                     cache.screens.remove(serial);
@@ -264,6 +281,14 @@ impl Bridge {
             }
             p.screen = cache.screens.get(&p.serial).copied().flatten();
         }
+        if cache.sims.is_none() {
+            let all: Vec<jidr_core::Simulator> = c
+                .call_as("simulator.list", json!({}))
+                .await
+                .unwrap_or_default();
+            cache.sims = Some(crate::model::sidebar_sims(&all));
+        }
+        let sims = cache.sims.clone().unwrap_or_default();
         let leases = c
             .call("pool.list", json!({}))
             .await
@@ -327,6 +352,7 @@ impl Bridge {
             sdk_ready,
             budget,
             phones,
+            sims,
         })
     }
 

@@ -5,8 +5,9 @@ import { Theme } from "theme.slint";
 import { Icons } from "icons.slint";
 import { T, Role, Tone, Tones, Icon, IconButton, Button, ButtonKind, Kbd, Bar, SectionHeader, TrafficLights, Pill } from "components/base.slint";
 import { StatusText, StatusStyle, RootBadge } from "components/status.slint";
-import { DeviceVm, JobVm, TabVm, DevState, DevKind, RootKind, JobTone, ConnState, FormFactor, BudgetVm, BudgetLevel, PhoneVm } from "types.slint";
+import { DeviceVm, JobVm, TabVm, DevState, DevKind, RootKind, JobTone, ConnState, FormFactor, BudgetVm, BudgetLevel, PhoneVm, SimVm } from "types.slint";
 import { PhonesGroup } from "phones.slint";
+import { SimulatorsGroup } from "simulators.slint";
 
 /// One title-bar tab (`.tab`).
 export component TabItem inherits Rectangle {
@@ -357,10 +358,14 @@ export component Sidebar inherits Rectangle {
     in property <BudgetVm> budget;
     in property <[PhoneVm]> phones;
     in property <int> selected-phone: -1;
+    in property <[SimVm]> sims;
+    in property <int> selected-sim: -1;
     callback select(int);
     callback open(int);
     callback select-phone(int);
     callback open-phone(int);
+    callback select-sim(int);
+    callback open-sim(int);
     callback new-device();
     callback open-palette();
     callback open-settings();
@@ -448,6 +453,12 @@ export component Sidebar inherits Rectangle {
             selected: root.selected-phone;
             select(i) => { root.select-phone(i); }
             open(i) => { root.open-phone(i); }
+        }
+        SimulatorsGroup {
+            sims: root.sims;
+            selected: root.selected-sim;
+            select(i) => { root.select-sim(i); }
+            open(i) => { root.open-sim(i); }
         }
         if root.jobs.length > 0: SectionHeader {
             text: @tr("Jobs");

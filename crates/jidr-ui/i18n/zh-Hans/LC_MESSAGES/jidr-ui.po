@@ -61,7 +61,7 @@ msgstr "闲置 {} 小时后"
 msgid "After {} min idle"
 msgstr "闲置 {} 分钟后"
 
-#: src/device_form/mod.rs
+#: src/device_form/mod.rs src/model.rs
 msgid "Off"
 msgstr "关闭"
 
@@ -167,7 +167,7 @@ msgstr "存为基础设备"
 msgid "Saved {} as a base"
 msgstr "已将 {} 存为基础设备"
 
-#: src/launcher/mod.rs
+#: src/launcher/mod.rs src/simulators.rs
 msgid "Saved {}"
 msgstr "已保存 {}"
 
@@ -382,6 +382,50 @@ msgstr "今天 {}"
 #: src/model.rs
 msgid "Idle {} · {}"
 msgstr "闲置 {} · {}"
+
+#: src/model.rs
+msgid "Booted"
+msgstr "已启动"
+
+#: src/model.rs
+msgid "Booting"
+msgstr "正在启动"
+
+#: src/model.rs
+msgid "Shutting down"
+msgstr "正在关机"
+
+#: src/model.rs
+msgid "Unavailable"
+msgstr "不可用"
+
+#: src/model.rs
+msgid "An agent"
+msgstr "智能体"
+
+#: src/model.rs
+msgid "Jidr"
+msgstr "Jidr"
+
+#: src/model.rs
+msgid "Xcode or you"
+msgstr "Xcode 或你"
+
+#: src/model.rs
+msgid "Agent lease"
+msgstr "智能体租用"
+
+#: src/model.rs
+msgid "Created by an agent"
+msgstr "由智能体创建"
+
+#: src/model.rs
+msgid "Deleted when the agent's session ends."
+msgstr "智能体的会话结束时删除。"
+
+#: src/model.rs
+msgid "From Xcode's simulators: Jidr won't delete it."
+msgstr "来自 Xcode 的模拟器：Jidr 不会删除它。"
 
 #: src/model.rs src/root/root.slint src/wizard/mod.rs
 msgid "Done"
@@ -752,7 +796,7 @@ msgstr "品牌"
 msgid "Manufacturer"
 msgstr "制造商"
 
-#: src/root/props/props.slint
+#: src/root/props/props.slint ui/simulators.slint
 msgid "Device"
 msgstr "设备"
 
@@ -1224,6 +1268,46 @@ msgstr "无法连接到 GitHub"
 msgid "Open releases page"
 msgstr "打开发布页面"
 
+#: src/simulators.rs
+msgid "Preview · {} frames/s · open it in Simulator to use it"
+msgstr "预览 · {} 帧/秒 · 在 Simulator 中打开即可使用"
+
+#: src/simulators.rs
+msgid "No screen: {}"
+msgstr "无画面：{}"
+
+#: src/simulators.rs
+msgid "Couldn't open Simulator; is Xcode installed?"
+msgstr "无法打开 Simulator；是否已安装 Xcode？"
+
+#: src/simulators.rs
+msgid "Booting {}…"
+msgstr "正在启动 {}…"
+
+#: src/simulators.rs
+msgid "Shut down {}"
+msgstr "{} 已关机"
+
+#: src/simulators.rs
+msgid "An agent is using it: its lease ends and its session loses the simulator. Its apps and data are deleted."
+msgstr "有智能体正在使用：其租用将结束，会话将失去该模拟器。其应用和数据会被删除。"
+
+#: src/simulators.rs
+msgid "Its apps and data are deleted. This can't be undone."
+msgstr "其应用和数据会被删除。此操作无法撤销。"
+
+#: src/simulators.rs
+msgid "Delete {}?"
+msgstr "删除 {}？"
+
+#: src/simulators.rs src/snapshots/mod.rs
+msgid "Delete"
+msgstr "删除"
+
+#: src/simulators.rs
+msgid "Deleted {}"
+msgstr "已删除 {}"
+
 #: src/snapshots/mod.rs
 msgid "Not tagged"
 msgstr "未标记"
@@ -1301,10 +1385,6 @@ msgstr "将释放 {}。设备本身不会改变。此操作无法撤销。"
 #: src/snapshots/mod.rs
 msgid "its disk space"
 msgstr "其占用的磁盘空间"
-
-#: src/snapshots/mod.rs
-msgid "Delete"
-msgstr "删除"
 
 #: src/snapshots/mod.rs
 msgid "Deleted the snapshot"
@@ -1728,7 +1808,7 @@ msgstr "手机"
 msgid "Plug in a phone with USB debugging on."
 msgstr "连接一部已开启 USB 调试的手机。"
 
-#: ui/phones.slint
+#: ui/phones.slint ui/simulators.slint
 msgid "Screenshot"
 msgstr "截屏"
 
@@ -1772,7 +1852,7 @@ msgstr "状态"
 msgid "Not available"
 msgstr "不可用"
 
-#: ui/phones.slint ui/settings.slint
+#: ui/phones.slint ui/settings.slint ui/simulators.slint
 msgid "Tools"
 msgstr "工具"
 
@@ -1808,11 +1888,11 @@ msgstr "重启…"
 msgid "Drop an APK on the open screen to install it, or any other file to copy it to Download."
 msgstr "将 APK 拖放到打开的屏幕上即可安装，拖放其他文件则复制到 Download。"
 
-#: ui/phones.slint
+#: ui/phones.slint ui/simulators.slint
 msgid "Details"
 msgstr "详细信息"
 
-#: ui/phones.slint
+#: ui/phones.slint ui/simulators.slint
 msgid "Connecting to the screen…"
 msgstr "正在连接屏幕…"
 
@@ -2113,6 +2193,54 @@ msgstr "基础设备"
 #: ui/shell.slint
 msgid "Jobs"
 msgstr "任务"
+
+#: ui/simulators.slint
+msgid "Agent"
+msgstr "智能体"
+
+#: ui/simulators.slint
+msgid "Simulators"
+msgstr "模拟器"
+
+#: ui/simulators.slint
+msgid "Preview"
+msgstr "预览"
+
+#: ui/simulators.slint
+msgid "Open in Simulator"
+msgstr "在 Simulator 中打开"
+
+#: ui/simulators.slint
+msgid "Boot"
+msgstr "启动"
+
+#: ui/simulators.slint
+msgid "Simulator"
+msgstr "模拟器"
+
+#: ui/simulators.slint
+msgid "Runtime"
+msgstr "运行时"
+
+#: ui/simulators.slint
+msgid "UDID"
+msgstr "UDID"
+
+#: ui/simulators.slint
+msgid "Created by"
+msgstr "创建者"
+
+#: ui/simulators.slint
+msgid "Shut down"
+msgstr "关机"
+
+#: ui/simulators.slint
+msgid "Delete…"
+msgstr "删除…"
+
+#: ui/simulators.slint
+msgid "Agents get their own simulator with the simulator_lease MCP tool or `jidr sim lease`; it's deleted when their session ends."
+msgstr "智能体可通过 MCP 工具 simulator_lease 或 `jidr sim lease` 获得自己的模拟器；会话结束时删除。"
 
 #: ui/snapshots.slint
 msgid "Saved on every stop · used for fast start"

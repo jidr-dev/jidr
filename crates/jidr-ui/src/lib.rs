@@ -30,6 +30,7 @@ pub mod player;
 pub mod recording;
 pub mod root;
 pub mod settings;
+pub mod simulators;
 pub mod snapshots;
 pub mod widgets;
 pub mod wizard;

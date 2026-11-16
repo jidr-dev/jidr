@@ -579,6 +579,78 @@ impl Exhausted {
     }
 }
 
+/// An iOS simulator's view model (D50).
+pub fn sim_vm(s: &jidr_core::Simulator) -> crate::SimVm {
+    use crate::i18n::tr;
+    use jidr_core::SimState as S;
+    let look = match s.state {
+        S::Booted => crate::PhoneLook::Ready,
+        S::Booting | S::ShuttingDown => crate::PhoneLook::Waiting,
+        S::Shutdown => crate::PhoneLook::Waiting,
+        S::Unavailable => crate::PhoneLook::Problem,
+    };
+    let state = match s.state {
+        S::Booted => tr!("Booted"),
+        S::Booting => tr!("Booting"),
+        S::ShuttingDown => tr!("Shutting down"),
+        S::Shutdown => tr!("Off"),
+        S::Unavailable => tr!("Unavailable"),
+    };
+    let agent = s.agent_owned || s.lease.is_some();
+    let owner = if agent {
+        tr!("An agent")
+    } else if s.jidr_owned {
+        tr!("Jidr")
+    } else {
+        tr!("Xcode or you")
+    };
+    let lease = if s.lease.is_some() {
+        tr!("Agent lease")
+    } else {
+        tr!("Created by an agent")
+    };
+    let note = if s.lease.is_some() {
+        tr!("Deleted when the agent's session ends.")
+    } else if let Some(h) = &s.hint {
+        h.clone()
+    } else if !s.jidr_owned {
+        tr!("From Xcode's simulators: Jidr won't delete it.")
+    } else {
+        String::new()
+    };
+    crate::SimVm {
+        udid: s.udid.clone().into(),
+        name: s.name.clone().into(),
+        subtitle: format!("{} · {}", s.runtime, s.device_type).into(),
+        runtime: s.runtime.clone().into(),
+        device_type: s.device_type.clone().into(),
+        booted: s.state == S::Booted,
+        busy: matches!(s.state, S::Booting | S::ShuttingDown),
+        tablet: s.device_type.starts_with("iPad"),
+        look,
+        status: format!("{state} · {}", s.runtime).into(),
+        state: state.into(),
+        agent,
+        jidr_owned: s.jidr_owned,
+        lease: lease.into(),
+        owner: owner.into(),
+        note: note.into(),
+    }
+}
+
+/// The simulators the sidebar lists: booted ones and those Jidr created,
+/// booted first.
+pub fn sidebar_sims(all: &[jidr_core::Simulator]) -> Vec<jidr_core::Simulator> {
+    let mut v: Vec<_> = all
+        .iter()
+        .filter(|s| s.state != jidr_core::SimState::Unavailable)
+        .filter(|s| s.jidr_owned || s.lease.is_some() || s.state != jidr_core::SimState::Shutdown)
+        .cloned()
+        .collect();
+    v.sort_by_key(|s| (s.state != jidr_core::SimState::Booted, s.name.clone()));
+    v
+}
+
 /// A USB phone's view model (#92).
 pub fn phone_vm(p: &jidr_core::PhysicalDevice) -> crate::PhoneVm {
     use jidr_core::PhoneState as S;
@@ -915,6 +987,40 @@ mod tests {
         assert_eq!(parsed.free_mb(), 2048);
         assert_eq!(parsed.picks(), vec![id]);
         assert_eq!(parsed.rows()[0].detail, "Idle 10\u{a0}m · 6.3 GB");
+    }
+
+    #[test]
+    fn the_sidebar_lists_booted_and_jidr_simulators() {
+        let sim = |udid: &str, state: jidr_core::SimState, owned: bool| jidr_core::Simulator {
+            udid: udid.into(),
+            name: udid.into(),
+            state,
+            platform: "iOS".into(),
+            runtime: "iOS 26.1".into(),
+            runtime_id: "r".into(),
+            device_type: "iPhone 17 Pro".into(),
+            device_type_id: "t".into(),
+            jidr_owned: owned,
+            agent_owned: owned,
+            lease: None,
+            data_path: None,
+            hint: None,
+        };
+        use jidr_core::SimState as S;
+        let all = vec![
+            sim("idle", S::Shutdown, false),
+            sim("mine", S::Shutdown, true),
+            sim("on", S::Booted, false),
+            sim("gone", S::Unavailable, true),
+        ];
+        let shown: Vec<String> = sidebar_sims(&all).into_iter().map(|s| s.udid).collect();
+        assert_eq!(
+            shown,
+            ["on", "mine"],
+            "booted first; Xcode's idle ones hidden"
+        );
+        let vm = sim_vm(&all[1]);
+        assert!(vm.agent && vm.jidr_owned && !vm.booted);
     }
 
     #[test]

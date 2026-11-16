@@ -3200,6 +3200,7 @@ dependencies = [
  "jidr-daemon",
  "jidr-helper",
  "jidr-proto",
+ "jidr-simctl",
  "png",
  "reqwest",
  "rspolib",

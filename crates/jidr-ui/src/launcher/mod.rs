@@ -33,9 +33,12 @@ pub fn wire(ctx: &Rc<Ctx>) {
             st.selected = id;
             st.selected_phone = None;
             st.phone_open = false;
+            st.selected_sim = None;
+            st.sim_open = false;
         }
         c.rerender();
         crate::phones::sync(&c);
+        crate::simulators::sync(&c);
         crate::snapshots::load(&c);
     });
 

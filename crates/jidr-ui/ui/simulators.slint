@@ -1,0 +1,324 @@
+// iOS simulators (D50): the sidebar's Simulators group, a simulator's
+// detail, and a view-only preview of its screen. Simulators that are booted
+// or that Jidr created are listed; input comes from Simulator.app (Open in
+// Simulator) or from agents through MCP.
+
+import { Theme } from "theme.slint";
+import { Icons } from "icons.slint";
+import { T, Role, Tone, Icon, IconButton, Button, ButtonKind, Panel, Pill, KV, Scroll, SectionHeader } from "components/base.slint";
+import { SimVm, PhoneLook } from "types.slint";
+import { PhonePill } from "phones.slint";
+
+/// Sidebar simulator row: name + agent badge, then state.
+export component SidebarSim inherits Rectangle {
+    in property <SimVm> sim;
+    in property <bool> selected;
+    callback clicked();
+    callback double-clicked();
+    height: 52px;
+    border-radius: Theme.radius-md;
+    background: selected ? Theme.surface-selected : ta.has-hover ? Theme.surface-control-hover.with-alpha(0.4) : transparent;
+    badge := Pill {
+        visible: sim.agent;
+        x: Theme.rtl ? 8px : parent.width - 8px - self.width;
+        y: 8px;
+        small: true;
+        tone: Tone.neutral;
+        icon: Icons.wand-sparkles;
+        text: @tr("Agent");
+    }
+    T {
+        x: Theme.rtl ? (sim.agent ? badge.x + badge.width + 6px : 8px) : 8px;
+        y: 8px;
+        height: 20px;
+        width: parent.width - 22px - (sim.agent ? badge.width : 0px);
+        text: sim.name;
+        role: Role.label;
+        font-weight: 600;
+        overflow: elide;
+    }
+    PhonePill {
+        x: Theme.rtl ? parent.width - 8px - self.width : 8px;
+        y: 30px;
+        height: 16px;
+        bare: true;
+        small: true;
+        look: sim.look;
+        text: sim.status;
+    }
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+        double-clicked => { root.double-clicked(); }
+    }
+}
+
+/// The Simulators group; hidden when there's nothing to show (no Xcode, or
+/// no booted or Jidr-created simulator).
+export component SimulatorsGroup inherits VerticalLayout {
+    in property <[SimVm]> sims;
+    in property <int> selected: -1;
+    callback select(int);
+    callback open(int);
+    spacing: 2px;
+    if root.sims.length > 0: SectionHeader {
+        text: @tr("Simulators");
+        trailing: root.sims.length;
+    }
+    for s[i] in root.sims: SidebarSim {
+        sim: s;
+        selected: i == root.selected;
+        clicked => { root.select(i); }
+        double-clicked => { root.open(i); }
+    }
+}
+
+/// Section title (`.h-sec`).
+component H inherits T {
+    font-size: 13px;
+    font-weight: 600;
+    height: 18px;
+}
+
+/// A selected simulator in the library.
+export component SimDetail inherits Rectangle {
+    in property <SimVm> sim;
+    /// "sim-open", "simulator", "screenshot", "boot", "shutdown", "delete".
+    callback action(string);
+    background: Theme.surface-base;
+    property <length> px: 32px;
+    property <length> cw: self.width - 2 * px;
+    Scroll {
+        content-height: 520px;
+        sil := Rectangle {
+            x: Theme.rtl ? px + cw - self.width : px;
+            y: 28px;
+            width: 72px;
+            height: 120px;
+            border-radius: 14px;
+            background: Theme.surface-device-bezel;
+            Rectangle {
+                x: 5px;
+                y: 5px;
+                width: parent.width - 10px;
+                height: parent.height - 10px;
+                border-radius: 10px;
+                background: sim.booted ? #ebe5d6 : Theme.surface-sunken;
+            }
+            Icon {
+                visible: !sim.booted;
+                size: 24px;
+                source: sim.tablet ? Icons.tablet : Icons.smartphone;
+                colorize: Theme.text-tertiary;
+            }
+        }
+        acts := HorizontalLayout {
+            x: Theme.rtl ? px : px + cw - self.preferred-width;
+            y: 28px;
+            height: 30px;
+            spacing: 8px;
+            if sim.booted: Button {
+                kind: ButtonKind.primary;
+                has-icon: true;
+                icon: Icons.eye;
+                text: @tr("Preview");
+                kbd: "↵";
+                clicked => { root.action("sim-open"); }
+            }
+            if sim.booted: Button {
+                has-icon: true;
+                icon: Icons.external-link;
+                text: @tr("Open in Simulator");
+                clicked => { root.action("simulator"); }
+            }
+            if !sim.booted && !sim.busy: Button {
+                kind: ButtonKind.primary;
+                has-icon: true;
+                icon: Icons.play;
+                text: @tr("Boot");
+                clicked => { root.action("boot"); }
+            }
+        }
+        property <length> tx: Theme.rtl ? acts.x + acts.preferred-width + 20px : sil.x + sil.width + 20px;
+        property <length> tw: cw - sil.width - acts.preferred-width - 40px;
+        T {
+            x: tx;
+            y: 28px;
+            width: tw;
+            height: 38px;
+            text: sim.name;
+            role: Role.hero;
+            overflow: elide;
+        }
+        T {
+            x: tx;
+            y: 70px;
+            width: tw;
+            height: 18px;
+            text: sim.subtitle;
+            color: Theme.text-secondary;
+        }
+        HorizontalLayout {
+            x: Theme.rtl ? tx + tw - self.preferred-width : tx;
+            y: 96px;
+            height: 24px;
+            spacing: 8px;
+            PhonePill {
+                look: sim.look;
+                text: sim.state;
+            }
+            if sim.agent: Pill {
+                tone: Tone.neutral;
+                icon: Icons.wand-sparkles;
+                text: sim.lease;
+            }
+        }
+        T {
+            x: tx;
+            y: 130px;
+            width: tw;
+            height: 18px;
+            text: sim.note;
+            role: Role.caption;
+            color: Theme.text-secondary;
+        }
+
+        Panel {
+            x: px;
+            y: 172px;
+            width: cw;
+            height: 152px;
+            H {
+                x: 16px;
+                y: 14px;
+                width: parent.width - 32px;
+                text: @tr("Simulator");
+            }
+            VerticalLayout {
+                x: 16px;
+                y: 44px;
+                width: parent.width - 32px;
+                spacing: 6px;
+                alignment: LayoutAlignment.start;
+                KV { key: @tr("Runtime"); value: sim.runtime; key-width: 96px; }
+                KV { key: @tr("Device"); value: sim.device-type; key-width: 96px; }
+                KV { key: @tr("UDID"); value: sim.udid; mono: true; key-width: 96px; }
+                KV { key: @tr("Created by"); value: sim.owner; key-width: 96px; }
+            }
+        }
+
+        H {
+            x: Theme.rtl ? px + cw - self.preferred-width : px;
+            y: 352px;
+            width: self.preferred-width;
+            text: @tr("Tools");
+        }
+        HorizontalLayout {
+            x: Theme.rtl ? px + cw - self.preferred-width : px;
+            y: 382px;
+            height: 30px;
+            spacing: 8px;
+            if sim.booted: Button { has-icon: true; icon: Icons.camera; text: @tr("Screenshot"); clicked => { root.action("screenshot"); } }
+            if sim.booted: Button { has-icon: true; icon: Icons.power; text: @tr("Shut down"); clicked => { root.action("shutdown"); } }
+            if sim.jidr-owned: Button { has-icon: true; kind: ButtonKind.tertiary; icon: Icons.trash-2; text: @tr("Delete…"); clicked => { root.action("delete"); } }
+        }
+        T {
+            x: px;
+            y: 426px;
+            width: cw;
+            height: 36px;
+            text: @tr("Agents get their own simulator with the simulator_lease MCP tool or `jidr sim lease`; it's deleted when their session ends.");
+            role: Role.caption;
+            color: Theme.text-secondary;
+            wrap: word-wrap;
+        }
+    }
+}
+
+/// A booted simulator's screen, view only (simctl screenshots).
+export component SimView inherits Rectangle {
+    in property <SimVm> sim;
+    in property <image> frame;
+    in property <bool> has-frame;
+    in property <int> frame-w: 1320;
+    in property <int> frame-h: 2868;
+    in property <string> rate;
+    callback action(string);
+    background: Theme.surface-sunken;
+    bar := Rectangle {
+        height: 48px;
+        y: 0px;
+        background: Theme.surface-base;
+        Rectangle {
+            y: parent.height - 1px;
+            height: 1px;
+            background: Theme.border-default;
+        }
+        back := Button {
+            x: Theme.rtl ? parent.width - 12px - self.width : 12px;
+            small: true;
+            kind: ButtonKind.tertiary;
+            has-icon: true;
+            icon: Theme.rtl ? Icons.chevron-right : Icons.chevron-left;
+            text: @tr("Details");
+            clicked => { root.action("sim-close"); }
+        }
+        T {
+            x: Theme.rtl ? back.x - 12px - self.width : back.x + back.width + 12px;
+            width: self.preferred-width;
+            text: sim.name;
+            role: Role.label;
+            font-weight: 600;
+        }
+        HorizontalLayout {
+            x: Theme.rtl ? 12px : parent.width - 12px - self.preferred-width;
+            y: 8px;
+            height: 32px;
+            spacing: 2px;
+            for k[j] in [
+                { a: "screenshot", i: Icons.camera },
+                { a: "simulator", i: Icons.external-link },
+            ]: IconButton {
+                icon: k.i;
+                icon-size: Theme.icon-md;
+                clicked => { root.action(k.a); }
+            }
+        }
+    }
+    area := Rectangle {
+        y: bar.height + 16px;
+        x: 16px;
+        width: parent.width - 32px;
+        height: parent.height - bar.height - 52px;
+        property <float> k: min(self.width / max(1px, root.frame-w * 1px), self.height / max(1px, root.frame-h * 1px));
+        Rectangle {
+            width: root.frame-w * 1px * area.k;
+            height: root.frame-h * 1px * area.k;
+            border-radius: 12px;
+            clip: true;
+            background: #000;
+            if root.has-frame: Image {
+                width: parent.width;
+                height: parent.height;
+                source: root.frame;
+                image-fit: fill;
+            }
+            if !root.has-frame: T {
+                width: parent.width;
+                horizontal-alignment: center;
+                text: @tr("Connecting to the screen…");
+                color: #ffffffb0;
+            }
+        }
+    }
+    T {
+        x: 16px;
+        y: parent.height - 28px;
+        width: parent.width - 32px;
+        height: 16px;
+        horizontal-alignment: center;
+        text: root.rate;
+        role: Role.caption;
+        color: Theme.text-tertiary;
+    }
+}
