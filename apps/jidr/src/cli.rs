@@ -734,6 +734,34 @@ pub enum SimCmd {
     },
     /// Trust a CA certificate (for a debugging proxy).
     TrustCert { sim: String, cert: PathBuf },
+    /// Tap at screenshot pixels (starts the XCTest input runner on first use).
+    Tap {
+        sim: String,
+        x: f64,
+        y: f64,
+        /// Hold this long (a long press).
+        #[arg(long)]
+        ms: Option<u32>,
+    },
+    /// Swipe between two points (screenshot pixels).
+    Swipe {
+        sim: String,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        /// Duration in milliseconds (default 300).
+        #[arg(long)]
+        ms: Option<u32>,
+    },
+    /// Type text into the focused field.
+    Text { sim: String, text: String },
+    /// Press home, volume_up, volume_down, enter, backspace or tab.
+    Key { sim: String, key: String },
+    /// Rotate: portrait, landscape_left, landscape_right, portrait_upside_down.
+    Rotate { sim: String, orientation: String },
+    /// The UI element tree of the app in front (frames in screenshot pixels).
+    Tree { sim: String },
 }
 
 #[derive(Debug, Subcommand)]

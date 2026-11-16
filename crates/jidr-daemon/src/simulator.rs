@@ -13,6 +13,10 @@
 //!
 //! A poller of `simctl list devices -j`, started by the first call,
 //! publishes `simulator.added`, `simulator.changed` and `simulator.removed`.
+//!
+//! Tap, swipe, text, keys, rotation and the UI tree go through Jidr's XCTest
+//! runner (`sim_runner`), built on this Mac on first use. Coordinates are
+//! screenshot pixels, like the rest of Jidr; the runner works in points.
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
@@ -35,6 +39,7 @@ use serde_json::{Value, json};
 use tokio::sync::Notify;
 use uuid::Uuid;
 
+use crate::sim_runner::{KeyAction, to_points};
 use crate::state::State;
 
 /// What a booted simulator is expected to cost (simslim measured ~4 GB
@@ -361,6 +366,57 @@ pub struct CertParams {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct TapParams {
+    pub device: String,
+    /// Screenshot pixels from the left.
+    pub x: f64,
+    /// Screenshot pixels from the top.
+    pub y: f64,
+    /// Hold this long (a long press).
+    #[serde(default)]
+    pub duration_ms: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SwipeParams {
+    pub device: String,
+    pub x1: f64,
+    pub y1: f64,
+    pub x2: f64,
+    pub y2: f64,
+    /// How long the swipe takes (default 300 ms).
+    #[serde(default)]
+    pub duration_ms: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TextParams {
+    pub device: String,
+    /// Text to type into the focused field (any characters).
+    pub text: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct KeyParams {
+    pub device: String,
+    /// `home`, `volume_up`, `volume_down`, `enter`, `backspace`, `tab` (or
+    /// `GoHome`, `Enter`, `Backspace`…).
+    pub key: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RotateParams {
+    pub device: String,
+    /// `portrait`, `landscape_left`, `landscape_right` or `portrait_upside_down`.
+    pub orientation: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct DownloadParams {
     /// `iOS`, `tvOS`, `watchOS` or `visionOS` (default `iOS`).
     #[serde(default)]
@@ -400,6 +456,10 @@ pub struct SimHub {
     listing: Mutex<Vec<SimDevice>>,
     recordings: Mutex<HashMap<String, Arc<Notify>>>,
     watching: Mutex<bool>,
+    cache: PathBuf,
+    logs: PathBuf,
+    /// XCTest input runners by UDID.
+    pub(crate) runners: crate::sim_runner::Runners,
 }
 
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -414,7 +474,7 @@ impl SimHub {
     /// Loads `<data>/simulators.json`. Leases from before a daemon restart
     /// have no connection any more: they get the grace period, then the
     /// reaper takes them.
-    pub fn load(file: PathBuf) -> Self {
+    pub fn load(file: PathBuf, cache: PathBuf, logs: PathBuf) -> Self {
         let mut owned: OwnedFile = std::fs::read_to_string(&file)
             .ok()
             .and_then(|t| serde_json::from_str(&t).ok())
@@ -433,6 +493,9 @@ impl SimHub {
             listing: Mutex::new(Vec::new()),
             recordings: Mutex::new(HashMap::new()),
             watching: Mutex::new(false),
+            cache,
+            logs,
+            runners: crate::sim_runner::Runners::default(),
         }
     }
 
@@ -546,6 +609,10 @@ impl SimHub {
             .filter(|d| SimState::from_simctl(&d.state, d.available).is_booted())
             .map(|d| (d.udid.clone(), d.name.clone()))
             .collect()
+    }
+
+    pub fn booted_udids(&self) -> Vec<String> {
+        self.booted().into_iter().map(|(u, _)| u).collect()
     }
 
     fn set_listing(&self, devices: &[SimDevice]) {
@@ -687,6 +754,32 @@ pub fn specs() -> Vec<CommandSpec> {
             "simulator.trust_cert",
             "Trust a CA certificate (for a debugging proxy)",
         ),
+        CommandSpec::new::<SimParams>(
+            "simulator.input_prepare",
+            "Start the XCTest input runner on a booted simulator (built once per Xcode version; tap and friends start it on demand)",
+        )
+        .long_running(),
+        CommandSpec::new::<TapParams>(
+            "simulator.tap",
+            "Tap a simulator's screen (screenshot pixels); duration_ms for a long press",
+        ),
+        CommandSpec::new::<SwipeParams>(
+            "simulator.swipe",
+            "Swipe on a simulator's screen (screenshot pixels)",
+        ),
+        CommandSpec::new::<TextParams>(
+            "simulator.text",
+            "Type text into the focused field of the app in front",
+        ),
+        CommandSpec::new::<KeyParams>(
+            "simulator.key",
+            "Press home, volume or a text key (enter, backspace, tab)",
+        ),
+        CommandSpec::new::<RotateParams>("simulator.rotate", "Rotate a simulator"),
+        CommandSpec::new::<SimParams>(
+            "simulator.ui_tree",
+            "The UI element tree of the app in front (type, identifier, label, value, frame in screenshot pixels)",
+        ),
     ]
 }
 
@@ -808,6 +901,7 @@ impl CommandProvider for SimulatorProvider {
             "simulator.shutdown" => {
                 let p: SimParams = parse_params(params)?;
                 let s = self.pick(&simctl, &p.device).await?;
+                hub.runners.stop(&s.udid).await;
                 simctl
                     .clone()
                     .with_timeout(Duration::from_secs(120))
@@ -1096,6 +1190,104 @@ impl CommandProvider for SimulatorProvider {
                 simctl.trust_cert(&s.udid, &p.cert).await?;
                 Ok(json!({ "trusted": p.cert }))
             }
+            "simulator.input_prepare" => {
+                let p: SimParams = parse_params(params)?;
+                let s = self.booted(&simctl, &p.device).await?;
+                let r = self.runner(ctx, &s.udid).await?;
+                let screen = r.screen().await?;
+                Ok(json!({ "ready": true, "port": r.port, "screen": {
+                    "width": screen.width, "height": screen.height, "scale": screen.scale } }))
+            }
+            "simulator.tap" => {
+                let p: TapParams = parse_params(params)?;
+                let s = self.booted(&simctl, &p.device).await?;
+                let r = self.runner(ctx, &s.udid).await?;
+                let k = r.screen().await?.scale;
+                let mut req = json!({ "x": to_points(p.x, k), "y": to_points(p.y, k) });
+                if let Some(ms) = p.duration_ms {
+                    req["duration_ms"] = json!(ms.clamp(1, 10_000));
+                }
+                r.call("tap", req).await?;
+                Ok(json!({ "tapped": [p.x, p.y] }))
+            }
+            "simulator.swipe" => {
+                let p: SwipeParams = parse_params(params)?;
+                let s = self.booted(&simctl, &p.device).await?;
+                let r = self.runner(ctx, &s.udid).await?;
+                let k = r.screen().await?.scale;
+                let ms = p.duration_ms.unwrap_or(300).clamp(10, 10_000);
+                r.call(
+                    "swipe",
+                    json!({
+                        "x1": to_points(p.x1, k), "y1": to_points(p.y1, k),
+                        "x2": to_points(p.x2, k), "y2": to_points(p.y2, k),
+                        "duration_ms": ms,
+                    }),
+                )
+                .await?;
+                Ok(json!({ "swiped": [p.x1, p.y1, p.x2, p.y2], "duration_ms": ms }))
+            }
+            "simulator.text" => {
+                let p: TextParams = parse_params(params)?;
+                let s = self.booted(&simctl, &p.device).await?;
+                if p.text.is_empty() {
+                    return Ok(json!({ "typed": 0 }));
+                }
+                let ids = foreground_candidates(&simctl, &s.udid).await;
+                let r = self.runner(ctx, &s.udid).await?;
+                let v = r
+                    .call("text", json!({ "text": p.text, "bundle_ids": ids }))
+                    .await?;
+                Ok(json!({ "typed": p.text.chars().count(), "bundle_id": v["bundle_id"] }))
+            }
+            "simulator.key" => {
+                let p: KeyParams = parse_params(params)?;
+                let action = crate::sim_runner::key_action(&p.key).ok_or_else(|| {
+                    JidrError::usage(format!(
+                        "unknown key {:?} for a simulator: home, volume_up, volume_down, enter, backspace, tab",
+                        p.key
+                    ))
+                })?;
+                let s = self.booted(&simctl, &p.device).await?;
+                let r = self.runner(ctx, &s.udid).await?;
+                match action {
+                    KeyAction::Button(name) => {
+                        r.call("key", json!({ "name": name })).await?;
+                    }
+                    KeyAction::Text(t) => {
+                        let ids = foreground_candidates(&simctl, &s.udid).await;
+                        r.call("text", json!({ "text": t, "bundle_ids": ids }))
+                            .await?;
+                    }
+                }
+                Ok(json!({ "key": p.key }))
+            }
+            "simulator.rotate" => {
+                let p: RotateParams = parse_params(params)?;
+                if !matches!(
+                    p.orientation.as_str(),
+                    "portrait" | "landscape_left" | "landscape_right" | "portrait_upside_down"
+                ) {
+                    return Err(JidrError::usage(
+                        "orientation is portrait, landscape_left, landscape_right or portrait_upside_down",
+                    ));
+                }
+                let s = self.booted(&simctl, &p.device).await?;
+                let r = self.runner(ctx, &s.udid).await?;
+                let v = r
+                    .call("rotate", json!({ "orientation": p.orientation }))
+                    .await?;
+                Ok(v)
+            }
+            "simulator.ui_tree" => {
+                let p: SimParams = parse_params(params)?;
+                let s = self.booted(&simctl, &p.device).await?;
+                let ids = foreground_candidates(&simctl, &s.udid).await;
+                let r = self.runner(ctx, &s.udid).await?;
+                let k = r.screen().await?.scale;
+                let tree = r.call("tree", json!({ "bundle_ids": ids })).await?;
+                Ok(crate::sim_runner::tree_in_pixels(tree, k))
+            }
             _ => Err(JidrError::usage(format!("unknown method {method}"))),
         }
     }
@@ -1231,8 +1423,14 @@ impl SimulatorProvider {
             let _ = self.state.release_simulator(id).await;
             return Err(e);
         }
+        // Ready for input before the agent's first tap; a failure here
+        // doesn't fail the lease (screenshots and simctl commands still work).
+        let input = match self.runner(ctx, &udid).await {
+            Ok(_) => json!({ "ready": true }),
+            Err(e) => json!({ "ready": false, "error": e.message }),
+        };
         let s = self.pick(simctl, &udid).await?;
-        Ok(json!({ "lease": lease, "udid": udid, "simulator": s }))
+        Ok(json!({ "lease": lease, "udid": udid, "simulator": s, "input": input }))
     }
 
     /// `simulator.record`: `simctl io recordVideo` until stopped, then SIGINT
@@ -1303,6 +1501,7 @@ impl SimulatorProvider {
         tokio::spawn(async move {
             let mut known: BTreeMap<String, SimState> = BTreeMap::new();
             let mut first = true;
+            let mut tick: u64 = 0;
             loop {
                 if let Ok(devices) = simctl.devices().await {
                     state.sims.set_listing(&devices);
@@ -1330,9 +1529,29 @@ impl SimulatorProvider {
                     first = false;
                     known = now;
                 }
+                tick += 1;
+                if tick.is_multiple_of(20) {
+                    state.sims.runners.sweep(&state.sims.booted_udids()).await;
+                }
                 tokio::time::sleep(POLL_EVERY).await;
             }
         });
+    }
+
+    /// The simulator's input runner, started (and built) on first use.
+    async fn runner(
+        &self,
+        ctx: &CallCtx,
+        udid: &str,
+    ) -> JidrResult<Arc<crate::sim_runner::Runner>> {
+        if !cfg!(target_os = "macos") {
+            return Err(JidrError::sdk(
+                "iOS simulators are not supported on this platform",
+            ));
+        }
+        let hub = self.hub();
+        let report = |m: &str| ctx.report(None, m);
+        hub.runners.get(udid, &hub.cache, &hub.logs, &report).await
     }
 }
 
@@ -1371,6 +1590,7 @@ impl State {
 /// Shuts down and deletes a simulator Jidr is done with; one that's already
 /// gone is fine.
 async fn remove(simctl: &Simctl, hub: &SimHub, udid: &str) -> JidrResult<()> {
+    hub.runners.stop(udid).await;
     let slow = simctl.clone().with_timeout(Duration::from_secs(120));
     if let Err(e) = slow.shutdown(udid).await
         && e.code != jidr_core::ErrorCode::NotFound
@@ -1384,6 +1604,33 @@ async fn remove(simctl: &Simctl, hub: &SimHub, udid: &str) -> JidrResult<()> {
     }
     hub.forget(udid);
     Ok(())
+}
+
+/// Apps that may be in front: the user's apps and the system apps people
+/// test against. The runner falls back to SpringBoard (home screen, alerts).
+async fn foreground_candidates(simctl: &Simctl, udid: &str) -> Vec<String> {
+    let mut ids: Vec<String> = simctl
+        .apps(udid)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|a| a.kind == "User")
+        .map(|a| a.bundle_id)
+        .collect();
+    ids.extend(
+        [
+            "com.apple.Preferences",
+            "com.apple.mobilesafari",
+            "com.apple.MobileSMS",
+            "com.apple.mobileslideshow",
+            "com.apple.DocumentsApp",
+            "com.apple.Maps",
+            "com.apple.mobilecal",
+            "com.apple.MobileAddressBook",
+        ]
+        .map(String::from),
+    );
+    ids
 }
 
 fn guard_foreign(s: &Simulator, force: bool, what: &str) -> JidrResult<()> {
@@ -1966,7 +2213,11 @@ mod tests {
     #[test]
     fn leases_of_a_closed_connection_expire_after_grace() {
         let dir = tempfile::tempdir().unwrap();
-        let hub = SimHub::load(dir.path().join("simulators.json"));
+        let hub = SimHub::load(
+            dir.path().join("simulators.json"),
+            dir.path().join("cache"),
+            dir.path().join("logs"),
+        );
         let now = Utc::now();
         hub.add_lease(SimLease {
             id: Uuid::new_v4(),
@@ -1983,7 +2234,11 @@ mod tests {
         assert_eq!(hub.expired(now + chrono::Duration::seconds(121)).len(), 1);
 
         // A restarted daemon gives leftover connection leases the grace period.
-        let again = SimHub::load(dir.path().join("simulators.json"));
+        let again = SimHub::load(
+            dir.path().join("simulators.json"),
+            dir.path().join("cache"),
+            dir.path().join("logs"),
+        );
         let l = again.leases().pop().unwrap();
         assert_eq!(l.holder, SimHolder::Ttl);
         assert!(l.expires_at.is_some());

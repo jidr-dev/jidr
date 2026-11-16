@@ -17,6 +17,7 @@ pub mod protocol_doc;
 pub mod registry;
 pub use jidr_core::rpc;
 pub mod server;
+pub mod sim_runner;
 pub mod simulator;
 pub mod state;
 pub mod store;

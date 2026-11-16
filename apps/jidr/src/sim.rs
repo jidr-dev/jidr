@@ -536,6 +536,90 @@ pub async fn run(c: &Client, out: Out, cmd: SimCmd) -> JidrResult<()> {
             .await?;
             out.ok(&v, |_| "Trusted.".into());
         }
+        SimCmd::Tap { sim: d, x, y, ms } => {
+            let v = exec(
+                c,
+                out,
+                "simulator.tap",
+                json!({ "device": d, "x": x, "y": y, "duration_ms": ms }),
+            )
+            .await?;
+            out.ok(&v, |_| String::new());
+        }
+        SimCmd::Swipe {
+            sim: d,
+            x1,
+            y1,
+            x2,
+            y2,
+            ms,
+        } => {
+            let v = exec(
+                c,
+                out,
+                "simulator.swipe",
+                json!({ "device": d, "x1": x1, "y1": y1, "x2": x2, "y2": y2, "duration_ms": ms }),
+            )
+            .await?;
+            out.ok(&v, |_| String::new());
+        }
+        SimCmd::Text { sim: d, text } => {
+            let v = exec(
+                c,
+                out,
+                "simulator.text",
+                json!({ "device": d, "text": text }),
+            )
+            .await?;
+            out.ok(&v, |_| String::new());
+        }
+        SimCmd::Key { sim: d, key } => {
+            let v = exec(c, out, "simulator.key", json!({ "device": d, "key": key })).await?;
+            out.ok(&v, |_| String::new());
+        }
+        SimCmd::Rotate {
+            sim: d,
+            orientation,
+        } => {
+            let v = exec(
+                c,
+                out,
+                "simulator.rotate",
+                json!({ "device": d, "orientation": orientation }),
+            )
+            .await?;
+            out.ok(&v, |v| s(v, "orientation"));
+        }
+        SimCmd::Tree { sim: d } => {
+            let v = exec(c, out, "simulator.ui_tree", json!({ "device": d })).await?;
+            out.ok(&v, |v| {
+                let rows = v["elements"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(|e| {
+                        let f = &e["frame"];
+                        let at = match (
+                            f["x"].as_f64(),
+                            f["y"].as_f64(),
+                            f["width"].as_f64(),
+                            f["height"].as_f64(),
+                        ) {
+                            (Some(x), Some(y), Some(w), Some(h)) => format!("{x},{y} {w}×{h}"),
+                            _ => String::new(),
+                        };
+                        let depth = e["depth"].as_u64().unwrap_or(0) as usize;
+                        vec![
+                            format!("{}{}", "  ".repeat(depth), s(e, "type")),
+                            s(e, "label"),
+                            s(e, "identifier"),
+                            at,
+                        ]
+                    })
+                    .collect();
+                table(&["TYPE", "LABEL", "ID", "FRAME (PX)"], rows)
+            });
+        }
     }
     Ok(())
 }

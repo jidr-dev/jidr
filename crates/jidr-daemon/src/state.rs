@@ -137,7 +137,11 @@ impl State {
         let store = DeviceStore::load(config.paths.devices_file())?;
         let settings = load_settings(&config.paths.settings_file());
         let (events, _) = broadcast::channel(1024);
-        let sims = crate::simulator::SimHub::load(config.paths.data.join("simulators.json"));
+        let sims = crate::simulator::SimHub::load(
+            config.paths.data.join("simulators.json"),
+            config.paths.cache.clone(),
+            config.paths.logs.clone(),
+        );
         Ok(Arc::new_cyclic(|me| Self {
             paths: config.paths,
             studio_sdk: config.studio_sdk,
