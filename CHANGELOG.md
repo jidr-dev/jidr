@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.8.0](https://github.com/jidr-dev/jidr/compare/v0.7.0...v0.8.0) (2026-11-16)
+
+
+### Features
+
+* **cli:** jidr sim for iOS simulators ([432f1a3](https://github.com/jidr-dev/jidr/commit/432f1a377ebb199cd2cb081ef6b008eb50e8c430))
+* **daemon:** simulator input through the XCTest runner ([c2bec00](https://github.com/jidr-dev/jidr/commit/c2bec00ca511dc9de0898a4c1e91a401d32ecb1a))
+* **daemon:** simulator.* commands for iOS simulators over simctl ([7b739be](https://github.com/jidr-dev/jidr/commit/7b739be1009afbd46af911f0b6c27da8983b8723))
+* device audio in screen recordings ([#28](https://github.com/jidr-dev/jidr/issues/28)) ([13e3b79](https://github.com/jidr-dev/jidr/commit/13e3b79d84378829728e5ce1ac6a8ff253bdd806))
+* **gui:** a Simulators group with a preview and Open in Simulator ([d7c68c3](https://github.com/jidr-dev/jidr/commit/d7c68c3a936d2b245b05268830f86c53e6c32aa8))
+* iOS simulators (D50): simulator.*, per-session leases, input, app preview ([96ea376](https://github.com/jidr-dev/jidr/commit/96ea3760c7887b6147f971003777202e7de7df0d))
+* **mcp:** simulator_lease, simulator_release and device tools on simulators ([fced401](https://github.com/jidr-dev/jidr/commit/fced401596ca0ea8b39be2d7f7f5cdace3eeedcd))
+* **sim-runner:** an XCTest input runner for iOS Simulators ([bc263d8](https://github.com/jidr-dev/jidr/commit/bc263d8af2a66cb639ccd46823bd9c0acfc935c9))
+* **site:** an install and download box on every blog post ([3f5f6e5](https://github.com/jidr-dev/jidr/commit/3f5f6e5857c7fe55022202c6069681652e4dc477))
+* **site:** install and download box on blog posts ([1b34d4f](https://github.com/jidr-dev/jidr/commit/1b34d4f7d949daac2eaa77a5fb04d86319d15142))
+
+
+### Bug Fixes
+
+* **mcp:** list simulator_lease and simulator_release in the MCP bundle manifest ([4a55512](https://github.com/jidr-dev/jidr/commit/4a55512e26e9b0c69a6aaad3fce4f1ab91885bda))
+
 ## [0.7.0](https://github.com/jidr-dev/jidr/compare/v0.6.0...v0.7.0) (2026-11-15)
 
 
