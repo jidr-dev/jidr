@@ -78,7 +78,7 @@ Not a Genymotion feature. Runs on macOS with full Xcode; the CI smoke test needs
 | One simulator per agent session (`simulator.lease`) | 🚧 | `crates/jidr-daemon/src/simulator.rs` `leases_of_a_closed_connection_expire_after_grace`; not yet run end to end on a simulator |
 | Screenshot, recording | 🚧 | Screenshot checked by hand through `jidr sim screenshot` (1320×2868, Xcode 27.1); recording not yet |
 | Apps, files, logs, URLs, location and routes, appearance, status bar, permissions, push notifications, pasteboard, media, CA trust | 🚧 | Wired to public `simctl` subcommands; not yet run on a simulator |
-| Tap, swipe, text, keys, rotation, UI tree | 🚧 | `crates/jidr-daemon/src/sim_runner.rs` tests (key mapping, pixel frames); the XCTest runner (`helpers/jidr-sim-runner`) isn't on this branch's CI yet |
+| Tap, swipe, text, keys, rotation, UI tree | 🚧 | `crates/jidr-daemon/src/sim_runner.rs` tests (key mapping, pixel frames); the XCTest runner (`helpers/jidr-sim-runner`) builds with `cargo xtask sim-runner` but hasn't run on a simulator yet |
 | MCP: `simulator_lease`, device tools on a UDID | 🚧 | `crates/jidr-mcp/tests/mcp.rs` `tools_are_listed_with_annotations`; `crates/jidr-mcp/src/lib.rs` tests |
 | Desktop app: Simulators group, preview, Open in Simulator | 🚧 | `crates/jidr-ui/src/simulators.rs`; not yet in the goldens |
 | Snapshots, root, sensors, network shaping | ❌ | No simulator API (`docs/research/ios-simulators.md`) |
