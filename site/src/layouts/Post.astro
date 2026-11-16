@@ -4,7 +4,9 @@
 import Base from "./Base.astro";
 import Nav from "../components/Nav.astro";
 import Footer from "../components/Footer.astro";
-import { links } from "../config";
+import Icon from "../components/Icon.astro";
+import Terminal from "../components/Terminal.astro";
+import { links, release } from "../config";
 import { postDate } from "../dates";
 
 interface Props {
@@ -38,8 +40,25 @@ const posting = {
         <article class="post">
           <p class="post-meta"><a href="/blog/">Blog</a> · <time datetime={iso}>{shown}</time></p>
           <h1>{title}</h1>
+          <p class="post-try-line">
+            Made with <a href="/" data-track="home" data-track-label="blog-top">Jidr</a>, a free, open-source Android emulator manager for Apple Silicon Macs.
+            <a href={links.dmg} data-track="download" data-track-label="blog-top">Download</a> ·
+            <a href={links.repo} data-track="github" data-track-label="blog-top">GitHub</a>
+          </p>
           <slot />
         </article>
+        {/* The way from a guide to the app: readers land here from Reddit and
+            search, so every post ends with the install command and the
+            download, tracked like the homepage's (D48). */}
+        <aside class="post-try" aria-labelledby="post-try-title">
+          <h2 id="post-try-title">Try Jidr</h2>
+          <p>Free and open source. Rooted Android emulators, a CLI and an MCP server on your Mac, in a few minutes.</p>
+          {release.homebrew && <Terminal title="Install" lines={["brew install --cask abdurahmanalmehdi/tap/jidr"]} />}
+          <div class="post-try-actions">
+            <a class="btn btn-primary" href={links.dmg} data-track="download" data-track-label="blog-bottom"><Icon name="download" class="ic i16" />Download for Mac</a>
+            <a class="btn" href={links.repo} data-track="github" data-track-label="blog-bottom"><Icon name="star" class="ic i16" />Star on GitHub</a>
+          </div>
+        </aside>
       </main>
       <Footer />
     </div>

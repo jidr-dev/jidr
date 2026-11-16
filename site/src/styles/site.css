@@ -173,6 +173,40 @@ body {
   color: inherit;
 }
 
+/* The line under a post's title and the box after it: the way to the app. */
+.post-try-line {
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--jidr-color-text-secondary);
+}
+
+.post-try {
+  max-width: 70ch;
+  margin: -48px auto 96px;
+  padding: var(--jidr-space-xl);
+  border: 1px solid var(--jidr-color-border-default);
+  border-radius: var(--jidr-radius-lg);
+  background: var(--jidr-color-surface-sunken);
+}
+
+.post-try h2 {
+  margin: 0 0 var(--jidr-space-sm);
+  font-size: 22px;
+  line-height: 30px;
+}
+
+.post-try p {
+  margin: 0 0 var(--jidr-space-lg);
+  color: var(--jidr-color-text-secondary);
+}
+
+.post-try-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jidr-space-sm);
+  margin-top: var(--jidr-space-lg);
+}
+
 .post-list {
   max-width: 70ch;
   margin: 0 auto;
