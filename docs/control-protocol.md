@@ -57,6 +57,10 @@ Commands take a device as `"device": "<name or id>"`; names are unique, case-ins
 
 `physical.*` commands work on Android phones that `adb` sees with USB debugging on (#92). A phone isn't a Jidr device: it has no id, no AVD, no root modes, snapshots or sensor widgets, and no lock. It's named by its adb serial (or its model, when only one connected phone has it) in `device`. Emulators that adb also lists are left out. A phone that isn't `ready` answers `not_found` with `details: {serial, state}` and a message that says what to do (unlock it and allow USB debugging, replug it…). The first `physical.*` call starts a watcher on `adb track-devices -l` that publishes the `physical.*` events below.
 
+## iOS simulators
+
+`simulator.*` commands work on the iOS, tvOS, watchOS and visionOS simulators in Xcode's own device set, on macOS with full Xcode (D50); elsewhere, or without Xcode, they fail with `sdk` and say what to install. A simulator isn't a Jidr device: it has no id, no root modes, snapshots or sensor widgets, and no lock. It's named by its UDID (or its name, when only one simulator has it) in `device`. Jidr records the simulators it creates (`<data>/simulators.json`); `simulator.erase` and `simulator.delete` refuse others with `usage` unless `force`. Commands that need a booted simulator answer `not_found` with `details: {udid, state}` otherwise. `simulator.lease` creates and boots a fresh simulator and ties it to the calling connection (2 minutes of grace after it closes) or to `ttl_s`, like `pool.get`; when the lease ends the reaper shuts it down and deletes it. Input commands (`simulator.tap`, `swipe`, `text`, `key`, `rotate`, `ui_tree`) start Jidr's XCTest runner on the simulator, building it on first use (a minute or two, once per Xcode version); coordinates are screenshot pixels. The first `simulator.*` call starts a poller of `simctl list devices` that publishes the `simulator.*` events below.
+
 ## Synced folders
 
 `file.sync.start` keeps a host folder copied to a running device, one way (#27). It refuses a folder with more than `max_files` files (10000) after skips, with `usage` and `details.max_files`, and answers at once with the sync (`{id, device, name, local, remote, state: mirroring|syncing|watching, files, bytes, ignore, pushed, removed, started_at, last_synced_at?, last_error?}`) while the first copy runs. Then it watches the folder and sends each batch of changes once the folder has been quiet for 300 ms (at most every 2 s while it keeps changing): files written are pushed, paths deleted or renamed away are deleted on the device. Files that are only on the device are left alone. `.git`, `node_modules` and `.DS_Store` are skipped at any depth unless `no_default_ignore`; symlinks aren't followed. One sync per device folder: a second one into the same folder, or a folder inside it, is `usage`. A sync ends with its device: when the device stops, hibernates, crashes or is deleted, `file.sync.stopped` says why, and it doesn't come back at the next start or after a daemon restart; start it again.
@@ -99,6 +103,10 @@ Subscribing again replaces the filter. Topics:
 | `physical.connected` | `{serial, state}`: adb sees a new physical phone (`state`: `ready`, `unauthorized`, `offline`, `no_permissions`, `connecting`, `other`) |
 | `physical.changed` | `{serial, state}`: a phone's state changed (it accepted the RSA prompt, went offline…) |
 | `physical.disconnected` | `{serial}`: the phone is gone (unplugged, rebooting) |
+| `simulator.added` | `{udid, name?, state?}`: a new simulator (created by Jidr or elsewhere) |
+| `simulator.changed` | `{udid, state}`: a simulator's state changed (`booted`, `booting`, `shutdown`, `shutting_down`, `unavailable`) |
+| `simulator.removed` | `{udid}`: a simulator was deleted |
+| `simulator.leased`, `simulator.released` | `{lease, udid, name?}`: a simulator lease began, or ended (by `simulator.release`, `simulator.delete` or the reaper) |
 | `file.sync.started` | the new sync, as `file.sync.list` shows it |
 | `file.sync.progress` | `{id, device, phase: mirror\|change, done, total}`: files copied so far in the first copy or a batch of changes |
 | `file.sync.synced` | `{id, device, pushed, removed}`: the first copy or a batch of changes reached the device |
@@ -1246,6 +1254,437 @@ Change daemon-wide settings (only the fields given)
 | `budget_percent` | integer |  | Share of host RAM running devices may use, 10–100 percent (D42). |
 | `auto_hibernate_minutes` | integer |  | Hibernate running devices idle this many minutes; 0 = off. |
 
+### `simulator.*`
+
+#### `simulator.add_media`
+
+Add photos, videos or contacts
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `files` | string[] | yes | Photos, videos or vCard contacts. |
+
+#### `simulator.appearance`
+
+Get or set light or dark mode
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `mode` | string |  | `light` or `dark`; without it the current one is returned. |
+
+#### `simulator.apps`
+
+Installed apps
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes | The simulator's UDID (`simulator.list`), or its name when only one simulator has it. |
+
+#### `simulator.boot`
+
+Boot a simulator and wait until it's ready · long-running (job)
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `force` | boolean |  | Start even past the host RAM budget. |
+
+#### `simulator.clone`
+
+Copy a shut-down simulator (apps, data and settings)
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `name` | string | yes | The copy's name. |
+
+#### `simulator.connect_info`
+
+The UDID and platform of a booted simulator
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes | The simulator's UDID (`simulator.list`), or its name when only one simulator has it. |
+
+#### `simulator.content_size`
+
+Get or set the text size (Dynamic Type)
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `size` | string |  | `extra-small` … `extra-extra-extra-large`, `accessibility-medium` …, `increment` or `decrement`; without it the current one is returned. |
+
+#### `simulator.create`
+
+Create a simulator · long-running (job)
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `name` | string | yes |  |
+| `device_type` | string |  | Device type id or name, e.g. `iPhone 17 Pro` (default: the newest iPhone the runtime supports). |
+| `runtime` | string |  | Runtime id, name or version, e.g. `iOS 26.1` or `26.1` (default: the newest iOS runtime). |
+| `boot` | boolean |  | Boot it once created. |
+| `agent_owned` | boolean |  | Agents may erase and delete it without `--allow-destructive` (D5). MCP sets this for simulators an agent creates. |
+| `force` | boolean |  | Start even past the host RAM budget. |
+
+#### `simulator.delete`
+
+Delete a simulator (force for one Jidr didn't create) · **destructive**
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `force` | boolean |  | Required for a simulator Jidr didn't create. |
+
+#### `simulator.details`
+
+One simulator's details
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes | The simulator's UDID (`simulator.list`), or its name when only one simulator has it. |
+
+#### `simulator.device_types`
+
+Simulator device types (iPhone 17 Pro, iPad Air…)
+
+No params.
+
+#### `simulator.erase`
+
+Erase a simulator's apps, data and settings (force for one Jidr didn't create) · **destructive**
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `force` | boolean |  | Required for a simulator Jidr didn't create. |
+
+#### `simulator.input_prepare`
+
+Start the XCTest input runner on a booted simulator (built once per Xcode version; tap and friends start it on demand) · long-running (job)
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes | The simulator's UDID (`simulator.list`), or its name when only one simulator has it. |
+
+#### `simulator.install`
+
+Install a simulator build (.app, or a .zip holding one)
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `app` | string | yes | A simulator build: an `.app` folder, or a `.zip` holding one. |
+
+#### `simulator.key`
+
+Press home, volume or a text key (enter, backspace, tab)
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `key` | string | yes | `home`, `volume_up`, `volume_down`, `enter`, `backspace`, `tab` (or `GoHome`, `Enter`, `Backspace`…). |
+
+#### `simulator.launch`
+
+Launch an app
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `bundle` | string | yes |  |
+| `args` | string[] |  | Arguments passed to the app. |
+| `relaunch` | boolean |  | Quit it first if it's running. |
+
+#### `simulator.lease`
+
+Get your own fresh, booted simulator for this session; it's shut down and deleted when the lease ends (this connection closes, or ttl_s) · long-running (job)
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device_type` | string |  | Device type id or name (default: the newest iPhone). |
+| `runtime` | string |  | Runtime id, name or version (default: the newest iOS runtime). |
+| `name` | string |  | The simulator's name (default `Jidr agent <id>`). |
+| `ttl_s` | integer |  | Lease lifetime in seconds. Without it the lease lasts as long as this client connection, plus 2 minutes. |
+| `force` | boolean |  | Start even past the host RAM budget. |
+
+#### `simulator.leases`
+
+Simulator leases
+
+No params.
+
+#### `simulator.list`
+
+iOS, tvOS, watchOS and visionOS simulators on this Mac (Xcode's device set): state, runtime, whether Jidr created or leased them
+
+No params.
+
+#### `simulator.location_clear`
+
+Stop a route and clear the simulated location
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes | The simulator's UDID (`simulator.list`), or its name when only one simulator has it. |
+
+#### `simulator.location_route`
+
+Move along a route (GPX/KML file or points) at a speed
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `file` | string |  | A GPX or KML file. |
+| `points` | number[][] |  | Or the points as `[lat, lon]` pairs. |
+| `speed_mps` | number |  | Speed in metres per second (default 20). |
+
+#### `simulator.location_set`
+
+Set the simulated location
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `lat` | number | yes |  |
+| `lon` | number | yes |  |
+
+#### `simulator.log`
+
+Recent lines of a simulator's log
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `seconds` | integer |  | How far back, in seconds (default 60). |
+| `lines` | integer |  | Only the last N lines. |
+| `predicate` | string |  | A `log` predicate, e.g. `process == "MyApp"`. |
+
+#### `simulator.open_url`
+
+Open a URL or deep link
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `url` | string | yes | A URL or deep link, e.g. `myapp://settings`. |
+
+#### `simulator.pasteboard`
+
+Get or set the pasteboard text
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `text` | string |  | Text to put on the pasteboard; without it the current text is returned. |
+
+#### `simulator.privacy`
+
+Grant, revoke or reset an app's permission without a prompt
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `action` | string | yes | `grant`, `revoke` or `reset`. |
+| `service` | string | yes | `all`, `calendar`, `contacts`, `contacts-limited`, `location`, `location-always`, `photos`, `photos-add`, `media-library`, `microphone`, `motion`, `reminders` or `siri`. |
+| `bundle` | string |  | The app (required for grant and revoke). |
+
+#### `simulator.pull_file`
+
+Copy a file out of an app's data container
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `bundle` | string | yes |  |
+| `remote` | string | yes | Path inside the app's data container, e.g. `Documents/log.txt`. |
+| `local` | string | yes | Where to save it on this Mac. |
+
+#### `simulator.push_file`
+
+Copy a file into an app's data container (default Documents/)
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `bundle` | string | yes | The app whose data container receives the file. |
+| `local` | string | yes | A file on this Mac. |
+| `remote` | string |  | Path inside the app's data container (default `Documents/`). |
+
+#### `simulator.push_notification`
+
+Send an app a push notification
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `bundle` | string | yes |  |
+| `payload` | any | yes | The payload, with an `aps` object, e.g. `{"aps": {"alert": "Hi"}}`. |
+
+#### `simulator.record`
+
+Record a simulator's screen (QuickTime, H.264) until simulator.record_stop or max_seconds · long-running (job)
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `path` | string |  | Where to save the QuickTime movie (default `~/Movies/Jidr/<name> <time>.mov`). |
+| `max_seconds` | integer |  | Stop on its own after this many seconds (default 600). |
+
+#### `simulator.record_stop`
+
+Stop a simulator's screen recording and save it
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes | The simulator's UDID (`simulator.list`), or its name when only one simulator has it. |
+
+#### `simulator.release`
+
+End a simulator lease: the simulator is shut down and deleted
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `lease` | uuid |  | The lease id from `simulator.lease`. |
+| `device` | string |  | Or the leased simulator's UDID or name. |
+
+#### `simulator.rename`
+
+Rename a simulator
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `name` | string | yes |  |
+
+#### `simulator.rotate`
+
+Rotate a simulator
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `orientation` | string | yes | `portrait`, `landscape_left`, `landscape_right` or `portrait_upside_down`. |
+
+#### `simulator.runtime_download`
+
+Download a simulator runtime with Xcode (`xcodebuild -downloadPlatform`, about 8 GB) · long-running (job)
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `platform` | string |  | `iOS`, `tvOS`, `watchOS` or `visionOS` (default `iOS`). |
+| `version` | string |  | A specific OS version, e.g. `26.1` (default: the one this Xcode wants). |
+
+#### `simulator.runtimes`
+
+Installed simulator runtimes
+
+No params.
+
+#### `simulator.screenshot`
+
+Save a PNG of a simulator's screen
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `path` | string |  | Where to save the PNG (default `~/Pictures/Jidr/<name> <time>.png`). |
+
+#### `simulator.shutdown`
+
+Shut a simulator down
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes | The simulator's UDID (`simulator.list`), or its name when only one simulator has it. |
+
+#### `simulator.status_bar`
+
+Override what the status bar shows (time, signal, battery), or clear it
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `clear` | boolean |  | Remove every override. |
+| `time` | string |  | e.g. `9:41`, or an ISO date. |
+| `data_network` | string |  | `hide`, `wifi`, `3g`, `4g`, `lte`, `lte-a`, `lte+`, `5g`, `5g+`, `5g-uwb`, `5g-uc`. |
+| `wifi_bars` | integer |  | 0–3. |
+| `cellular_bars` | integer |  | 0–4. |
+| `operator_name` | string |  |  |
+| `battery_state` | string |  | `charging`, `charged` or `discharging`. |
+| `battery_level` | integer |  | 0–100. |
+
+#### `simulator.swipe`
+
+Swipe on a simulator's screen (screenshot pixels)
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `x1` | number | yes |  |
+| `y1` | number | yes |  |
+| `x2` | number | yes |  |
+| `y2` | number | yes |  |
+| `duration_ms` | integer |  | How long the swipe takes (default 300 ms). |
+
+#### `simulator.tap`
+
+Tap a simulator's screen (screenshot pixels); duration_ms for a long press
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `x` | number | yes | Screenshot pixels from the left. |
+| `y` | number | yes | Screenshot pixels from the top. |
+| `duration_ms` | integer |  | Hold this long (a long press). |
+
+#### `simulator.terminate`
+
+Quit an app
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `bundle` | string | yes | The app's bundle id, e.g. `com.example.app`. |
+
+#### `simulator.text`
+
+Type text into the focused field of the app in front
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `text` | string | yes | Text to type into the focused field (any characters). |
+
+#### `simulator.trust_cert`
+
+Trust a CA certificate (for a debugging proxy)
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `cert` | string | yes | A CA certificate (PEM or DER), e.g. a debugging proxy's. |
+
+#### `simulator.ui_tree`
+
+The UI element tree of the app in front (type, identifier, label, value, frame in screenshot pixels)
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes | The simulator's UDID (`simulator.list`), or its name when only one simulator has it. |
+
+#### `simulator.uninstall`
+
+Uninstall an app
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `device` | string | yes |  |
+| `bundle` | string | yes | The app's bundle id, e.g. `com.example.app`. |
+
 ### `snapshot.*`
 
 #### `snapshot.delete`
@@ -1312,3 +1751,4 @@ Save a snapshot of a running device · long-running (job) · locks the device
 | 0.1 (additive) | #27: synced folders, from the new `sync` provider in the daemon. `file.sync.start {device, local, remote?, ignore?, no_default_ignore?, max_files?}` → the sync `{id, device, name, local, remote, state, files, bytes, ignore, pushed, removed, started_at, last_synced_at?, last_error?}` keeps a host folder copied to a running device (one way: a first copy, then each change, deletions included); `file.sync.stop {id}` (an id or a unique prefix) → the sync as it was; `file.sync.list {device?}` → `[sync]`. A folder past `max_files` (10000) is `usage` with `details.max_files`. New events `file.sync.started`, `file.sync.progress`, `file.sync.synced`, `file.sync.error`, `file.sync.stopped`. Syncs end when their device stops and aren't resumed. No existing command changed. |
 | 0.1 (additive) | #23: game controllers, widgets provider. `input.gamepad.list` → `{controllers: [{id, name, vendor?, product?}]}` (the controllers on this computer; macOS only for now, `usage` elsewhere). `input.gamepad.connect {device, controller?}` (long-running) replays the controller into the device as a virtual USB Xbox 360 controller, made with AOSP's `hid` command over `adb shell` (no root), until `input.gamepad.disconnect {device}` → `{disconnected}`, a cancel, the controller going away or the device stopping → `{controller, reports, ended: disconnected \| unplugged \| device_stopped}`; one per device (`busy`), `not_found` with no controller, `usage` when the guest has no `hid` command. `input.gamepad.get {device}` → `{connected}`. No existing command changed. |
 | 0.1 (additive) | #28: `media.record` gains optional `audio` (default `true`): the device's audio from the emulator's gRPC `streamAudio` (48 kHz 16-bit stereo) is encoded to AAC in the same MP4, on the video's clock; silence fills the times the device plays nothing. Its result gains `audio` (bool): whether the file has an audio track. It's `false` when `audio` was `false`, when the device starts with `-no-audio`, or when the audio stream couldn't be opened, in which case the recording is video-only and the daemon logs a warning; an audio failure never fails the recording. No other field changed. |
+| 0.1 (additive) | D50: iOS simulators, from the new `simulator` provider in the daemon (macOS with Xcode; `sdk` elsewhere). `simulator.list` → `[Simulator]` (`{udid, name, state: booted \| booting \| shutdown \| shutting_down \| unavailable, platform, runtime, runtime_id, device_type, device_type_id, jidr_owned, agent_owned, lease?, data_path?, hint?}`), `simulator.details {device}`, `simulator.connect_info {device}` → `{udid, name, platform}`, `simulator.runtimes`, `simulator.device_types`, `simulator.runtime_download {platform?, version?}` (long-running), `simulator.create {name, device_type?, runtime?, boot?, agent_owned?, force?}` (long-running), `simulator.lease {device_type?, runtime?, name?, ttl_s?, force?}` (long-running) → `{lease, udid, simulator, input: {ready, error?}}`, `simulator.release {lease \| device}`, `simulator.leases`, `simulator.clone`, `simulator.rename`, `simulator.boot {device, force?}` (long-running), `simulator.shutdown`, `simulator.erase` and `simulator.delete {device, force?}` (destructive), `simulator.screenshot {device, path?}` → `{path, width, height}`, `simulator.record {device, path?, max_seconds?}` (long-running, QuickTime) and `simulator.record_stop`, `simulator.install {device, app}` (`.app` or a zip of one), `simulator.uninstall`, `simulator.apps`, `simulator.launch`, `simulator.terminate`, `simulator.push_file`, `simulator.pull_file`, `simulator.log`, `simulator.open_url`, `simulator.location_set`, `simulator.location_route {device, file? \| points?, speed_mps?}`, `simulator.location_clear`, `simulator.appearance`, `simulator.content_size`, `simulator.status_bar`, `simulator.privacy`, `simulator.push_notification`, `simulator.pasteboard`, `simulator.add_media`, `simulator.trust_cert`, `simulator.input_prepare` (long-running), `simulator.tap`, `simulator.swipe`, `simulator.text`, `simulator.key`, `simulator.rotate`, `simulator.ui_tree`. Events `simulator.added`, `simulator.changed`, `simulator.removed`, `simulator.leased`, `simulator.released`. `host.budget` counts booted simulators (4096 MB each); `daemon` stays up while a simulator lease exists (D4). No existing command's result changed. |

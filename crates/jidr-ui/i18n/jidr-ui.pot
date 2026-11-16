@@ -59,7 +59,7 @@ msgstr ""
 msgid "After {} min idle"
 msgstr ""
 
-#: src/device_form/mod.rs
+#: src/device_form/mod.rs src/model.rs
 msgid "Off"
 msgstr ""
 
@@ -165,7 +165,7 @@ msgstr ""
 msgid "Saved {} as a base"
 msgstr ""
 
-#: src/launcher/mod.rs
+#: src/launcher/mod.rs src/simulators.rs
 msgid "Saved {}"
 msgstr ""
 
@@ -379,6 +379,50 @@ msgstr ""
 
 #: src/model.rs
 msgid "Idle {} · {}"
+msgstr ""
+
+#: src/model.rs
+msgid "Booted"
+msgstr ""
+
+#: src/model.rs
+msgid "Booting"
+msgstr ""
+
+#: src/model.rs
+msgid "Shutting down"
+msgstr ""
+
+#: src/model.rs
+msgid "Unavailable"
+msgstr ""
+
+#: src/model.rs
+msgid "An agent"
+msgstr ""
+
+#: src/model.rs
+msgid "Jidr"
+msgstr ""
+
+#: src/model.rs
+msgid "Xcode or you"
+msgstr ""
+
+#: src/model.rs
+msgid "Agent lease"
+msgstr ""
+
+#: src/model.rs
+msgid "Created by an agent"
+msgstr ""
+
+#: src/model.rs
+msgid "Deleted when the agent's session ends."
+msgstr ""
+
+#: src/model.rs
+msgid "From Xcode's simulators: Jidr won't delete it."
 msgstr ""
 
 #: src/model.rs src/root/root.slint src/wizard/mod.rs
@@ -757,7 +801,7 @@ msgstr ""
 msgid "Manufacturer"
 msgstr ""
 
-#: src/root/props/props.slint
+#: src/root/props/props.slint ui/simulators.slint
 msgid "Device"
 msgstr ""
 
@@ -1227,6 +1271,46 @@ msgstr ""
 msgid "Open releases page"
 msgstr ""
 
+#: src/simulators.rs
+msgid "Preview · {} frames/s · open it in Simulator to use it"
+msgstr ""
+
+#: src/simulators.rs
+msgid "No screen: {}"
+msgstr ""
+
+#: src/simulators.rs
+msgid "Couldn't open Simulator; is Xcode installed?"
+msgstr ""
+
+#: src/simulators.rs
+msgid "Booting {}…"
+msgstr ""
+
+#: src/simulators.rs
+msgid "Shut down {}"
+msgstr ""
+
+#: src/simulators.rs
+msgid "An agent is using it: its lease ends and its session loses the simulator. Its apps and data are deleted."
+msgstr ""
+
+#: src/simulators.rs
+msgid "Its apps and data are deleted. This can't be undone."
+msgstr ""
+
+#: src/simulators.rs
+msgid "Delete {}?"
+msgstr ""
+
+#: src/simulators.rs src/snapshots/mod.rs
+msgid "Delete"
+msgstr ""
+
+#: src/simulators.rs
+msgid "Deleted {}"
+msgstr ""
+
 #: src/snapshots/mod.rs
 msgid "Not tagged"
 msgstr ""
@@ -1301,10 +1385,6 @@ msgstr ""
 
 #: src/snapshots/mod.rs
 msgid "its disk space"
-msgstr ""
-
-#: src/snapshots/mod.rs
-msgid "Delete"
 msgstr ""
 
 #: src/snapshots/mod.rs
@@ -1731,7 +1811,7 @@ msgstr ""
 msgid "Plug in a phone with USB debugging on."
 msgstr ""
 
-#: ui/phones.slint
+#: ui/phones.slint ui/simulators.slint
 msgid "Screenshot"
 msgstr ""
 
@@ -1775,7 +1855,7 @@ msgstr ""
 msgid "Not available"
 msgstr ""
 
-#: ui/phones.slint ui/settings.slint
+#: ui/phones.slint ui/settings.slint ui/simulators.slint
 msgid "Tools"
 msgstr ""
 
@@ -1811,11 +1891,11 @@ msgstr ""
 msgid "Drop an APK on the open screen to install it, or any other file to copy it to Download."
 msgstr ""
 
-#: ui/phones.slint
+#: ui/phones.slint ui/simulators.slint
 msgid "Details"
 msgstr ""
 
-#: ui/phones.slint
+#: ui/phones.slint ui/simulators.slint
 msgid "Connecting to the screen…"
 msgstr ""
 
@@ -2113,6 +2193,54 @@ msgstr ""
 
 #: ui/shell.slint
 msgid "Jobs"
+msgstr ""
+
+#: ui/simulators.slint
+msgid "Agent"
+msgstr ""
+
+#: ui/simulators.slint
+msgid "Simulators"
+msgstr ""
+
+#: ui/simulators.slint
+msgid "Preview"
+msgstr ""
+
+#: ui/simulators.slint
+msgid "Open in Simulator"
+msgstr ""
+
+#: ui/simulators.slint
+msgid "Boot"
+msgstr ""
+
+#: ui/simulators.slint
+msgid "Simulator"
+msgstr ""
+
+#: ui/simulators.slint
+msgid "Runtime"
+msgstr ""
+
+#: ui/simulators.slint
+msgid "UDID"
+msgstr ""
+
+#: ui/simulators.slint
+msgid "Created by"
+msgstr ""
+
+#: ui/simulators.slint
+msgid "Shut down"
+msgstr ""
+
+#: ui/simulators.slint
+msgid "Delete…"
+msgstr ""
+
+#: ui/simulators.slint
+msgid "Agents get their own simulator with the simulator_lease MCP tool or `jidr sim lease`; it's deleted when their session ends."
 msgstr ""
 
 #: ui/snapshots.slint

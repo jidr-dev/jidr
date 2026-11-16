@@ -4,6 +4,7 @@ mod helper;
 mod i18n;
 mod license_check;
 mod release;
+mod sim_runner;
 mod skills;
 
 use std::path::{Path, PathBuf};
@@ -20,6 +21,7 @@ tasks:
   skills-check    check skills/*/SKILL.md frontmatter and their `jidr` commands (D43)
   i18n            extract the app's strings and update its translation catalogs (--check: verify only)
   helper          build the rooted on-device helper for the guest (ADR-0003)
+  sim-runner      build the XCTest input runner for iOS Simulators and print its .xctestrun
   e2e-mac         full arm64 end-to-end gate on Apple Silicon (release gate, D28)
   release         build the release artifacts: the macOS DMG, or the Linux x86_64 tarball (#50)";
 
@@ -31,6 +33,7 @@ fn main() -> ExitCode {
         Some("skills-check") => skills::run(),
         Some("i18n") => i18n::run(&args[1..]),
         Some("helper") => helper::run(&args[1..]),
+        Some("sim-runner") => sim_runner::run(&args[1..]),
         Some("e2e-mac") => e2e_mac(),
         Some("release") => release::run(&args[1..]),
         Some("-h" | "--help" | "help") => {

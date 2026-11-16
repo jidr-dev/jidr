@@ -67,3 +67,18 @@ Tests named `*_emulator` run on a real emulator: on Linux KVM in CI (API 30, 33,
   - A few emulator tests are still flaky on shared CI runners.
   - Several paid-tier niches are partial or post-MVP: motion presets, file-based camera, microphone injection (not yet run on an emulator), biometric scenarios, network loss and DNS, identifiers (the IMEI can't be changed), disk limits, gamepad (no emulator test yet).
   - Clipboard sharing in the player isn't finished.
+
+## iOS simulators (Jidr only, D50)
+
+Not a Genymotion feature. Runs on macOS with full Xcode; the CI smoke test needs a macOS runner (not added yet).
+
+| Feature | Jidr status | Evidence |
+|---|---|---|
+| List, create, clone, boot, shut down, erase, delete | 🚧 | `crates/jidr-simctl/src/parse.rs` tests (simctl JSON); `crates/jidr-daemon/src/simulator.rs` tests (picking, ownership guard, events). Checked by hand against Xcode 27.1 (list, runtimes, device types, details). |
+| One simulator per agent session (`simulator.lease`) | 🚧 | `crates/jidr-daemon/src/simulator.rs` `leases_of_a_closed_connection_expire_after_grace`; not yet run end to end on a simulator |
+| Screenshot, recording | 🚧 | Screenshot checked by hand through `jidr sim screenshot` (1320×2868, Xcode 27.1); recording not yet |
+| Apps, files, logs, URLs, location and routes, appearance, status bar, permissions, push notifications, pasteboard, media, CA trust | 🚧 | Wired to public `simctl` subcommands; not yet run on a simulator |
+| Tap, swipe, text, keys, rotation, UI tree | 🚧 | `crates/jidr-daemon/src/sim_runner.rs` tests (key mapping, pixel frames); the XCTest runner (`helpers/jidr-sim-runner`) builds with `cargo xtask sim-runner` but hasn't run on a simulator yet |
+| MCP: `simulator_lease`, device tools on a UDID | 🚧 | `crates/jidr-mcp/tests/mcp.rs` `tools_are_listed_with_annotations`; `crates/jidr-mcp/src/lib.rs` tests |
+| Desktop app: Simulators group, preview, Open in Simulator | 🚧 | `crates/jidr-ui/src/simulators.rs`; not yet in the goldens |
+| Snapshots, root, sensors, network shaping | ❌ | No simulator API (`docs/research/ios-simulators.md`) |

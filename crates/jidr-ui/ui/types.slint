@@ -276,6 +276,34 @@ export struct WidgetsVm {
 /// or needing the user (unauthorized, offline, no USB permission).
 export enum PhoneLook { ready, waiting, problem }
 
+/// An iOS simulator (`simulator.list`, D50), labels computed in Rust.
+export struct SimVm {
+    udid: string,
+    name: string,
+    /// "iOS 26.1 · iPhone 17 Pro"
+    subtitle: string,
+    runtime: string,
+    device-type: string,
+    booted: bool,
+    /// Booting or shutting down.
+    busy: bool,
+    tablet: bool,
+    look: PhoneLook,
+    /// "Booted", "Shut down", …
+    state: string,
+    /// Sidebar line: "Booted · iOS 26.1".
+    status: string,
+    /// Created or leased by an agent.
+    agent: bool,
+    jidr-owned: bool,
+    /// "Agent lease", "Created by an agent"
+    lease: string,
+    /// "Jidr", "An agent", "Xcode or you"
+    owner: string,
+    /// A line under the badges.
+    note: string,
+}
+
 /// A USB phone adb sees (`physical.list`), labels computed in Rust.
 export struct PhoneVm {
     serial: string,

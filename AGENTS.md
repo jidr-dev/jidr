@@ -4,7 +4,7 @@ Jidr is an open-source Genymotion Desktop alternative in Rust with one-click roo
 
 ## Architecture in one paragraph
 
-`jidr daemon` owns all device state and drives the AOSP emulator (gRPC `EmulatorController`, the telnet console, `adb`). The GUI (`apps/jidr-gui`), the CLI (`apps/jidr`) and the MCP server (`jidr mcp`) are thin clients over JSON-RPC 2.0 / NDJSON on a Unix socket. Every user action is a protocol command; UI-only view state (window size, zoom, panel layout) stays in the GUI. Providers (`jidr-daemon` core, `jidr-widgets`, `jidr-root`) register commands through the `CommandProvider` trait in `jidr-core`.
+`jidr daemon` owns all device state and drives the AOSP emulator (gRPC `EmulatorController`, the telnet console, `adb`). The GUI (`apps/jidr-gui`), the CLI (`apps/jidr`) and the MCP server (`jidr mcp`) are thin clients over JSON-RPC 2.0 / NDJSON on a Unix socket. Every user action is a protocol command; UI-only view state (window size, zoom, panel layout) stays in the GUI. Providers (`jidr-daemon` core, `jidr-widgets`, `jidr-root`) register commands through the `CommandProvider` trait in `jidr-core`. USB phones (`physical.*`, D46) and iOS simulators (`simulator.*` over `simctl`, D50) are separate command families, not Jidr devices.
 
 ## Repository map
 
@@ -13,6 +13,7 @@ Jidr is an open-source Genymotion Desktop alternative in Rust with one-click roo
 | `crates/jidr-core` | model, error codes, protocol types, the `CommandProvider` trait | Apache-2.0 |
 | `crates/jidr-proto` | gRPC code from the emulator's `emulator_controller.proto` / `snapshot_service.proto` | Apache-2.0 |
 | `crates/jidr-adb` | wraps the `adb` binary | Apache-2.0 |
+| `crates/jidr-simctl` | wraps Xcode's `simctl` for iOS simulators (D50) | Apache-2.0 |
 | `crates/jidr-sdk` | SDK discovery and install, license consent, AVDs, hardware profiles, download cache | Apache-2.0 |
 | `crates/jidr-backend` | `Backend` trait and the AOSP emulator backend (launch, ports, boot wait, console, gRPC) | Apache-2.0 |
 | `crates/jidr-daemon` | command registry, JSON-RPC server, jobs, events, locks | Apache-2.0 |
@@ -24,7 +25,8 @@ Jidr is an open-source Genymotion Desktop alternative in Rust with one-click roo
 | `crates/jidr-ui` | Slint GUI library | **GPL-3.0-only** |
 | `apps/jidr` | the `jidr` binary: CLI, `daemon` and `mcp` subcommands | Apache-2.0 |
 | `apps/jidr-gui` | the GUI binary | **GPL-3.0-only** |
-| `xtask` | `ci`, `license-check`, `e2e-mac`, `release` | Apache-2.0 |
+| `xtask` | `ci`, `license-check`, `e2e-mac`, `release`, `sim-runner` | Apache-2.0 |
+| `helpers/jidr-sim-runner` | XCTest runner for iOS simulator input (Swift), shipped as source and built on the user's Mac (D50) | Apache-2.0 |
 | `skills/` | agent skills (`skills/<name>/SKILL.md`, D43), checked by `cargo xtask skills-check` | Apache-2.0 |
 | `site/` | the jidr.ly site (Astro, not in the Cargo workspace) | Apache-2.0 |
 | `docs/design/` | design tokens (`tokens.json`, the single source for app and site), CSS and component specs | — |
@@ -79,6 +81,7 @@ The control protocol is frozen at the tag `protocol-v0.1` ([docs/control-protoco
 cargo xtask ci                                   # fmt, clippy, tests, license-check, skills-check, i18n --check
 cargo xtask license-check                        # D18 split-licensing guard
 cargo xtask skills-check                         # skills' frontmatter and jidr commands (D43)
+cargo xtask sim-runner                           # build the iOS simulator input runner (needs Xcode)
 cargo xtask i18n                                 # extract the app's strings into crates/jidr-ui/i18n (--check: verify)
 cargo nextest run -p <crate>                     # unit + integration tests
 cargo nextest run -p <crate> --features emulator # needs an emulator image

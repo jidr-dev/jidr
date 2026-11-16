@@ -1,8 +1,6 @@
 //! GPS widget: set a fix (gRPC `setGps`) and replay GPX/KML routes as a
 //! job that walks the track at a chosen speed (D14).
 
-pub mod track;
-
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -18,7 +16,7 @@ use serde_json::{Value, json};
 use uuid::Uuid;
 
 use crate::device::{grpc_err, target};
-use track::{Point, Track};
+use jidr_core::track::{self, Point, Track};
 
 /// Metres per second at 1× (a city drive).
 pub const BASE_MPS: f64 = 10.0;

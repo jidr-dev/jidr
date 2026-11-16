@@ -4,6 +4,7 @@ mod cli;
 mod output;
 mod phone;
 mod shell;
+mod sim;
 mod uninstall;
 
 use std::io::{BufRead, IsTerminal, Write};
@@ -1094,6 +1095,7 @@ async fn dispatch(c: &Client, cmd: Cmd, out: Out) -> JidrResult<()> {
         }
         Cmd::Pool { cmd } => pool(c, out, cmd).await?,
         Cmd::Phone { cmd } => phone::run(c, out, cmd).await?,
+        Cmd::Sim { cmd } => sim::run(c, out, cmd).await?,
         Cmd::Base { cmd } => base(c, out, cmd).await?,
         Cmd::Budget => {
             let v = c.call("host.budget", json!({})).await?;

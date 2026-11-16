@@ -78,6 +78,10 @@ jidr call pool.list
 jidr call device.hibernate '{"device":"agent-phone"}'
 ```
 
+## iOS: a simulator of your own
+
+On a Mac with Xcode, `jidr --json sim lease` (MCP: `simulator_lease`) creates and boots a fresh iOS simulator for you and returns its `udid`; use only that UDID, and `jidr sim release` with it (MCP: `simulator_release`) when done. A CLI lease lasts 2 hours by default (`--ttl 30m`); an MCP lease ends with your session plus 2 minutes, and the simulator is deleted then. A booted simulator counts 4 GB against the same RAM budget, so a full machine refuses it with exit 9 like an emulator.
+
 ## Don't
 
 - Don't use, stop, hibernate or delete a device you didn't create or lease. Ask instead.

@@ -2,7 +2,7 @@
 //! and way points; KML `<coordinates>` and `gx:coord`), plus geometry for
 //! walking a polyline at a given speed.
 
-use jidr_core::{JidrError, JidrResult};
+use crate::{JidrError, JidrResult};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Point {

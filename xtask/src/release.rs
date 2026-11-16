@@ -378,6 +378,33 @@ fn copy(from: &Path, to: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Copies a folder of plain files (the simulator input runner's source).
+fn copy_dir(from: &Path, to: &Path) -> Result<()> {
+    if !from.is_dir() {
+        bail!("{} is missing", from.display());
+    }
+    std::fs::create_dir_all(to)?;
+    for e in std::fs::read_dir(from)? {
+        let e = e?;
+        let name = e.file_name();
+        if name.to_string_lossy().starts_with('.') || name == "xcuserdata" || name == "build" {
+            continue;
+        }
+        let dest = to.join(&name);
+        if e.file_type()?.is_dir() {
+            copy_dir(&e.path(), &dest)?;
+        } else {
+            copy(&e.path(), &dest)?;
+        }
+    }
+    Ok(())
+}
+
+/// The XCTest runner for iOS simulator input (D50), shipped as source and
+/// built on the user's Mac on first use, so there's no simulator binary to
+/// sign or notarize.
+const SIM_RUNNER_SOURCE: &str = "helpers/jidr-sim-runner";
+
 /// The on-device helper build the release ships (ADR-0003).
 const SHIPPED_HELPER: &str = "aarch64";
 
@@ -390,7 +417,8 @@ fn helper_path(arch: &str) -> PathBuf {
 
 /// `Jidr.app` layout. The CLI lives in `Helpers/`: `MacOS/jidr` would collide
 /// with `MacOS/Jidr` on case-insensitive APFS. The on-device helper is a
-/// resource: an ELF for the Android guest, never run on the Mac.
+/// resource: an ELF for the Android guest, never run on the Mac. The
+/// simulator input runner is source in `Resources/sim-runner` (D50).
 fn assemble_app(root: &Path, bin: &Path, helper: &Path, app: &Path, version: &str) -> Result<()> {
     let contents = app.join("Contents");
     copy(&bin.join("jidr-gui"), &contents.join("MacOS/Jidr"))?;
@@ -402,6 +430,10 @@ fn assemble_app(root: &Path, bin: &Path, helper: &Path, app: &Path, version: &st
     copy(
         &root.join("apps/jidr-gui/assets/macos/Jidr.icns"),
         &contents.join("Resources/Jidr.icns"),
+    )?;
+    copy_dir(
+        &root.join(SIM_RUNNER_SOURCE),
+        &contents.join("Resources/sim-runner"),
     )?;
     for (from, name) in [
         ("LICENSE-APACHE", "LICENSE-APACHE"),
@@ -436,6 +468,10 @@ fn pack_mcpb(
     copy(
         helper,
         &dir.join("server").join(helper_path(SHIPPED_HELPER)),
+    )?;
+    copy_dir(
+        &root.join(SIM_RUNNER_SOURCE),
+        &dir.join("server/sim-runner"),
     )?;
     for (from, name) in [
         ("assets/brand/app-icon-512.png", "icon.png"),

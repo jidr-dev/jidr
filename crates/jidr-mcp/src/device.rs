@@ -1,23 +1,38 @@
 //! Typed device tools: screenshot, touch, keys, UI dump. They reach the
-//! emulator directly (gRPC + adb) using `device.connect_info`, like the player.
+//! emulator directly (gRPC + adb) using `device.connect_info`, like the player;
+//! USB phones through adb; iOS simulators through the daemon's
+//! `simulator.*` commands (D50).
 
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use jidr_adb::Adb;
-use jidr_core::{ConnectInfo, ErrorCode, JidrError, JidrResult, PhoneConnectInfo};
+use jidr_client::Client;
+use jidr_core::{ConnectInfo, ErrorCode, JidrError, JidrResult, PhoneConnectInfo, SimConnectInfo};
 use jidr_proto::Controller;
 use jidr_proto::control::{
     ImageFormat, KeyboardEvent, image_format::ImgFormat, keyboard_event::KeyEventType,
 };
+use serde_json::{Value, json};
 
 /// Screenshots are fitted in a box of this size (plan: PNG ≤ 1024 px).
 pub const SHOT_BOX: u32 = 1024;
 
 pub struct DeviceIo {
-    /// The emulator's gRPC endpoint and token; `None` for a USB phone,
-    /// which only adb reaches (#92).
-    grpc: Option<(u16, String)>,
-    pub adb: Adb,
+    target: Target,
+    /// A simulator's full screen size, once a screenshot has shown it.
+    sim_size: OnceLock<(u32, u32)>,
+}
+
+enum Target {
+    /// An emulator (gRPC endpoint and token) or a USB phone (`None`: only
+    /// adb reaches it, #92).
+    Android {
+        grpc: Option<(u16, String)>,
+        adb: Adb,
+    },
+    /// An iOS simulator, driven through the daemon.
+    Simulator { client: Arc<Client>, udid: String },
 }
 
 impl DeviceIo {
@@ -25,10 +40,10 @@ impl DeviceIo {
         let adb = Adb::new(&info.adb_path)
             .device(&info.adb_serial)
             .with_timeout(Duration::from_secs(60));
-        Self {
+        Self::of(Target::Android {
             grpc: Some((info.grpc_port, info.grpc_token)),
             adb,
-        }
+        })
     }
 
     /// A ready USB phone: everything goes through adb.
@@ -36,26 +51,85 @@ impl DeviceIo {
         let adb = Adb::new(&info.adb_path)
             .device(&info.serial)
             .with_timeout(Duration::from_secs(60));
-        Self { grpc: None, adb }
+        Self::of(Target::Android { grpc: None, adb })
+    }
+
+    /// A booted iOS simulator (D50).
+    pub fn simulator(client: Arc<Client>, info: SimConnectInfo) -> Self {
+        Self::of(Target::Simulator {
+            client,
+            udid: info.udid,
+        })
+    }
+
+    fn of(target: Target) -> Self {
+        Self {
+            target,
+            sim_size: OnceLock::new(),
+        }
+    }
+
+    fn adb(&self) -> JidrResult<&Adb> {
+        match &self.target {
+            Target::Android { adb, .. } => Ok(adb),
+            Target::Simulator { .. } => Err(JidrError::unexpected("not an Android device")),
+        }
+    }
+
+    /// Runs `simulator.<method>` on this simulator.
+    async fn sim(&self, method: &str, mut params: Value) -> JidrResult<Option<Value>> {
+        let Target::Simulator { client, udid } = &self.target else {
+            return Ok(None);
+        };
+        params["device"] = json!(udid);
+        client
+            .call(&format!("simulator.{method}"), params)
+            .await
+            .map(Some)
+    }
+
+    /// A simulator's screenshot at full size: (png, width, height).
+    async fn sim_png(&self) -> JidrResult<(Vec<u8>, u32, u32)> {
+        let dir = tempfile::Builder::new()
+            .prefix("jidr-mcp")
+            .tempdir()
+            .map_err(|e| JidrError::unexpected(format!("temp dir: {e}")))?;
+        let path = dir.path().join("screen.png");
+        self.sim("screenshot", json!({ "path": path })).await?;
+        let png = std::fs::read(&path)
+            .map_err(|e| JidrError::unexpected(format!("reading the screenshot: {e}")))?;
+        let (w, h) = png_size(&png).unwrap_or((0, 0));
+        let _ = self.sim_size.set((w, h));
+        Ok((png, w, h))
     }
 
     async fn grpc(&self) -> JidrResult<Option<Controller>> {
-        match &self.grpc {
-            Some((port, token)) => Ok(Some(
+        match &self.target {
+            Target::Android {
+                grpc: Some((port, token)),
+                ..
+            } => Ok(Some(
                 jidr_backend::grpc::connect_port(*port, token).await?.0,
             )),
-            None => Ok(None),
+            _ => Ok(None),
         }
     }
 
     /// The current screen size in device pixels, rotation applied.
     pub async fn screen_size(&self) -> JidrResult<(u32, u32)> {
-        let wm = self.adb.shell("wm size").await?;
+        if let Target::Simulator { .. } = self.target {
+            if let Some(size) = self.sim_size.get() {
+                return Ok(*size);
+            }
+            let (_, w, h) = self.sim_png().await?;
+            return Ok((w, h));
+        }
+        let adb = self.adb()?;
+        let wm = adb.shell("wm size").await?;
         let (w, h) = parse_wm_size(&wm).ok_or_else(|| {
             JidrError::unexpected(format!("can't read the screen size from {wm:?}"))
         })?;
-        let input = self
-            .adb
+        let input = adb
             .shell("dumpsys input | grep -m1 SurfaceOrientation")
             .await
             .unwrap_or_default();
@@ -69,8 +143,12 @@ impl DeviceIo {
 
     /// PNG fitted in `SHOT_BOX`; returns (png, width, height).
     pub async fn screenshot(&self) -> JidrResult<(Vec<u8>, u32, u32)> {
+        if let Target::Simulator { .. } = self.target {
+            let (png, _, _) = self.sim_png().await?;
+            return fit_png(&png, SHOT_BOX);
+        }
         let Some(mut c) = self.grpc().await? else {
-            let png = self.adb.screencap_png().await?;
+            let png = self.adb()?.screencap_png().await?;
             return fit_png(&png, SHOT_BOX);
         };
         // ADR-0001: ask for width *and* height, or the emulator ignores the size.
@@ -95,14 +173,21 @@ impl DeviceIo {
     }
 
     pub async fn tap(&self, x: u32, y: u32) -> JidrResult<()> {
-        self.adb
+        if self.sim("tap", json!({ "x": x, "y": y })).await?.is_some() {
+            return Ok(());
+        }
+        self.adb()?
             .shell(&format!("input tap {x} {y}"))
             .await
             .map(|_| ())
     }
 
     pub async fn swipe(&self, from: (u32, u32), to: (u32, u32), ms: u32) -> JidrResult<()> {
-        self.adb
+        let p = json!({ "x1": from.0, "y1": from.1, "x2": to.0, "y2": to.1, "duration_ms": ms });
+        if self.sim("swipe", p).await?.is_some() {
+            return Ok(());
+        }
+        self.adb()?
             .shell(&format!(
                 "input swipe {} {} {} {} {ms}",
                 from.0, from.1, to.0, to.1
@@ -118,21 +203,31 @@ impl DeviceIo {
         if text.is_empty() {
             return Ok(());
         }
+        // Simulators type any text (XCTest `typeText`).
+        if self.sim("text", json!({ "text": text })).await?.is_some() {
+            return Ok(());
+        }
         if !text.chars().all(|c| c.is_ascii() && !c.is_ascii_control()) {
             return Err(JidrError::usage(
                 "type_text supports printable ASCII; paste other text with command_run clipboard commands",
             ));
         }
-        self.adb.shell(&input_text_command(text)).await.map(|_| ())
+        self.adb()?
+            .shell(&input_text_command(text))
+            .await
+            .map(|_| ())
     }
 
     /// A key by its web name (`GoHome`, `GoBack`, `AppSwitch`, `Enter`, `Power`, …).
     pub async fn press_key(&self, key: &str) -> JidrResult<()> {
+        if self.sim("key", json!({ "key": key })).await?.is_some() {
+            return Ok(());
+        }
         let Some(mut c) = self.grpc().await? else {
             let code = jidr_adb::physical::android_keycode(key)
                 .ok_or_else(|| JidrError::usage(format!("unknown key {key:?}")))?;
             return self
-                .adb
+                .adb()?
                 .shell(&format!("input keyevent {code}"))
                 .await
                 .map(|_| ());
@@ -148,16 +243,20 @@ impl DeviceIo {
         Ok(())
     }
 
-    /// The UI hierarchy as uiautomator XML.
+    /// The UI hierarchy: uiautomator XML on Android, the XCTest element
+    /// tree as JSON on a simulator.
     pub async fn ui_dump(&self) -> JidrResult<String> {
+        if let Some(tree) = self.sim("ui_tree", json!({})).await? {
+            return Ok(serde_json::to_string_pretty(&tree).unwrap_or_default());
+        }
         // On a phone, keep the dump out of the user's shared storage.
-        let file = if self.grpc.is_some() {
+        let file = if matches!(self.target, Target::Android { grpc: Some(_), .. }) {
             "/sdcard/jidr_ui.xml"
         } else {
             "/data/local/tmp/jidr_ui.xml"
         };
         let out = self
-            .adb
+            .adb()?
             .shell(&format!("uiautomator dump {file} >/dev/null && cat {file}"))
             .await?;
         let start = out.find("<?xml").or_else(|| out.find("<hierarchy"));

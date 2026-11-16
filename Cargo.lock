@@ -3050,6 +3050,7 @@ dependencies = [
  "jidr-backend",
  "jidr-core",
  "jidr-sdk",
+ "jidr-simctl",
  "notify",
  "proptest",
  "schemars",
@@ -3174,6 +3175,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "jidr-simctl"
+version = "0.7.0"
+dependencies = [
+ "jidr-core",
+ "schemars",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "jidr-ui"
 version = "0.7.0"
 dependencies = [
@@ -3186,6 +3200,7 @@ dependencies = [
  "jidr-daemon",
  "jidr-helper",
  "jidr-proto",
+ "jidr-simctl",
  "png",
  "reqwest",
  "rspolib",

@@ -4,6 +4,7 @@ members = [
     "crates/jidr-core",
     "crates/jidr-proto",
     "crates/jidr-adb",
+    "crates/jidr-simctl",
     "crates/jidr-sdk",
     "crates/jidr-backend",
     "crates/jidr-daemon",
@@ -38,6 +39,7 @@ publish = false
 jidr-core = { path = "crates/jidr-core" }
 jidr-proto = { path = "crates/jidr-proto" }
 jidr-adb = { path = "crates/jidr-adb" }
+jidr-simctl = { path = "crates/jidr-simctl" }
 jidr-sdk = { path = "crates/jidr-sdk" }
 jidr-backend = { path = "crates/jidr-backend" }
 jidr-daemon = { path = "crates/jidr-daemon" }

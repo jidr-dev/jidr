@@ -10,7 +10,7 @@ Thanks for helping. Bug reports, fixes, features and docs are all welcome. This 
 
 ## Setup
 
-You need an Apple Silicon Mac with macOS 14 or later for the app and the arm64 emulator tests. The CLI, the daemon and the offline tests also build on Linux.
+You need an Apple Silicon Mac with macOS 14 or later for the app and the arm64 emulator tests. The CLI, the daemon and the offline tests also build on Linux. Working on iOS simulators (`jidr-simctl`, `helpers/jidr-sim-runner`) needs full Xcode with an iOS simulator runtime.
 
 ```bash
 brew install protobuf                     # protoc, for the gRPC bindings

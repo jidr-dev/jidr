@@ -26,6 +26,10 @@ pub struct State {
     pub selected_phone: Option<String>,
     /// The selected phone's screen view is open.
     pub phone_open: bool,
+    /// The selected iOS simulator's UDID (D50); it wins over the others.
+    pub selected_sim: Option<String>,
+    /// The selected simulator's preview is open.
+    pub sim_open: bool,
 }
 
 pub type Shared = Rc<RefCell<State>>;
@@ -104,6 +108,18 @@ pub fn render(app: &AppWindow, state: &State) {
     app.set_phone_open(phone.is_some() && state.phone_open);
     if phone.is_some() {
         app.set_selected(-1);
+    }
+    let sims: Vec<_> = state.data.sims.iter().map(model::sim_vm).collect();
+    let sim = state
+        .selected_sim
+        .as_ref()
+        .and_then(|u| state.data.sims.iter().position(|s| &s.udid == u));
+    app.set_sims(ModelRc::new(VecModel::from(sims)));
+    app.set_selected_sim(sim.map(|i| i as i32).unwrap_or(-1));
+    app.set_sim_open(sim.is_some() && state.sim_open);
+    if sim.is_some() {
+        app.set_selected(-1);
+        app.set_selected_phone(-1);
     }
     app.set_budget(
         state
@@ -309,6 +325,7 @@ pub fn apply_data(app: &AppWindow, data: Data) {
     if let Some(c) = ctx() {
         crate::player::sync(&c);
         crate::phones::sync(&c);
+        crate::simulators::sync(&c);
         // Starts a root setup queued for a device that just arrived (a new
         // Full-root device), instead of waiting for the next selection.
         crate::root::sync(&c);
@@ -347,6 +364,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     crate::snapshots::wire(&ctx);
     crate::root::wire(&ctx);
     crate::phones::wire(&ctx);
+    crate::simulators::wire(&ctx);
     auto_open(&ctx);
     bridge.connect(paths, sink(app.as_weak()));
     app.run()?;
