@@ -4,7 +4,9 @@
 //! `command_run`, `jobs_*`); typed tools cover the hot paths of driving a
 //! device (`screenshot`, `tap`, `swipe`, `type_text`, `press_key`, `ui_dump`,
 //! `logcat_tail`) and of a proxy for security testing (`proxy_set`,
-//! `proxy_clear`, `ca_cert_install`). Destructive commands follow D5.
+//! `proxy_clear`, `ca_cert_install`). `simulator_lease` gives each agent
+//! session its own iOS simulator (D50), and the device tools take its UDID.
+//! Destructive commands follow D5.
 
 pub mod device;
 
@@ -14,7 +16,9 @@ use std::time::{Duration, Instant};
 use base64::Engine;
 use jidr_client::Client;
 use jidr_core::provider::CommandSpec;
-use jidr_core::{ConnectInfo, Device, ErrorCode, JidrError, JidrResult, PhoneConnectInfo};
+use jidr_core::{
+    ConnectInfo, Device, ErrorCode, JidrError, JidrResult, PhoneConnectInfo, SimConnectInfo,
+};
 use rmcp::model::{
     CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, Implementation,
     JsonObject, ListToolsResult, PaginatedRequestParams, ServerCapabilities, ServerConfig, Tool,
@@ -123,6 +127,33 @@ struct PoolReleaseArgs {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+struct SimLeaseArgs {
+    /// Device type, e.g. `iPhone 17 Pro` or `iPad Air 11-inch (M3)`
+    /// (default: the newest iPhone; `command_run simulator.device_types`).
+    #[serde(default)]
+    device_type: Option<String>,
+    /// iOS version or runtime name, e.g. `26.1` (default: the newest).
+    #[serde(default)]
+    runtime: Option<String>,
+    /// Lease lifetime in seconds. Without it the simulator is yours until
+    /// this MCP session ends (plus 2 minutes).
+    #[serde(default)]
+    ttl_s: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct SimReleaseArgs {
+    /// The lease id from simulator_lease.
+    #[serde(default)]
+    lease: Option<String>,
+    /// Or the simulator's UDID.
+    #[serde(default)]
+    device: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 struct JobsListArgs {
     /// Include finished jobs.
     #[serde(default)]
@@ -139,7 +170,7 @@ struct JobArgs {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct DeviceArgs {
-    /// Device name or id, or a USB phone's adb serial (`physical.list`).
+    /// Device name or id, a USB phone's adb serial (`physical.list`), or an iOS simulator's UDID (`simulator_lease`).
     device: String,
 }
 
@@ -156,7 +187,7 @@ enum Coords {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct TapArgs {
-    /// Device name or id, or a USB phone's adb serial (`physical.list`).
+    /// Device name or id, a USB phone's adb serial (`physical.list`), or an iOS simulator's UDID (`simulator_lease`).
     device: String,
     x: f64,
     y: f64,
@@ -168,7 +199,7 @@ struct TapArgs {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct SwipeArgs {
-    /// Device name or id, or a USB phone's adb serial (`physical.list`).
+    /// Device name or id, a USB phone's adb serial (`physical.list`), or an iOS simulator's UDID (`simulator_lease`).
     device: String,
     x1: f64,
     y1: f64,
@@ -184,7 +215,7 @@ struct SwipeArgs {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct TypeArgs {
-    /// Device name or id, or a USB phone's adb serial (`physical.list`).
+    /// Device name or id, a USB phone's adb serial (`physical.list`), or an iOS simulator's UDID (`simulator_lease`).
     device: String,
     /// Text to type into the focused field (ASCII is reliable).
     text: String,
@@ -196,7 +227,7 @@ struct TypeArgs {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct KeyArgs {
-    /// Device name or id, or a USB phone's adb serial (`physical.list`).
+    /// Device name or id, a USB phone's adb serial (`physical.list`), or an iOS simulator's UDID (`simulator_lease`).
     device: String,
     /// `GoHome`, `GoBack`, `AppSwitch`, `Enter`, `Power`, `AudioVolumeUp`,
     /// `AudioVolumeDown`, `Tab`, `Backspace`, `ArrowUp`/`Down`/`Left`/`Right`.
@@ -206,7 +237,7 @@ struct KeyArgs {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct LogcatArgs {
-    /// Device name or id, or a USB phone's adb serial (`physical.list`).
+    /// Device name or id, a USB phone's adb serial (`physical.list`), or an iOS simulator's UDID (`simulator_lease`).
     device: String,
     /// Number of recent lines (default 200).
     #[serde(default)]
@@ -289,6 +320,21 @@ fn phone_not_ready(e: &JidrError) -> bool {
     e.data.as_ref().and_then(|d| d.get("state")).is_some()
 }
 
+/// A `simulator.*` refusal for a simulator that exists but isn't booted.
+fn sim_not_booted(e: &JidrError) -> bool {
+    e.data.as_ref().and_then(|d| d.get("udid")).is_some()
+}
+
+/// `5CB58484-F3D8-4482-A8CA-6A979D33FB66`: try simulators first.
+fn looks_like_udid(s: &str) -> bool {
+    let parts: Vec<&str> = s.split('-').collect();
+    parts.len() == 5
+        && parts
+            .iter()
+            .zip([8, 4, 4, 4, 12])
+            .all(|(p, n)| p.len() == n && p.chars().all(|c| c.is_ascii_hexdigit()))
+}
+
 fn tool_error(e: &JidrError) -> CallToolResult {
     let mut r = CallToolResult::error(vec![ContentBlock::text(format!(
         "{}: {}",
@@ -345,6 +391,24 @@ impl JidrMcp {
             tool::<PoolReleaseArgs>(
                 "pool_release",
                 "Give back a device from pool_get: it is stopped and deleted.",
+                ToolAnnotations::new()
+                    .read_only(false)
+                    .destructive(true)
+                    .idempotent(true)
+                    .open_world(false),
+            ),
+            tool::<SimLeaseArgs>(
+                "simulator_lease",
+                "Get your own fresh iOS simulator (needs Xcode on this Mac): created and booted for you, in about a minute. Returns its UDID; pass that as `device` to screenshot/tap/swipe/type_text/press_key/ui_dump, never another simulator's. It's deleted when this session ends; call simulator_release when done. Other simulator.* commands (install, launch, open_url, location, appearance, privacy…) go through command_run.",
+                ToolAnnotations::new()
+                    .read_only(false)
+                    .destructive(false)
+                    .idempotent(false)
+                    .open_world(false),
+            ),
+            tool::<SimReleaseArgs>(
+                "simulator_release",
+                "Give back a simulator from simulator_lease: it is shut down and deleted.",
                 ToolAnnotations::new()
                     .read_only(false)
                     .destructive(true)
@@ -427,8 +491,23 @@ impl JidrMcp {
             .map_err(|e| JidrError::unexpected(e.to_string()))
     }
 
-    /// A running Jidr device, else a ready USB phone by serial (#92).
+    /// A booted iOS simulator by UDID or name (D50).
+    async fn simulator(&self, selector: &str) -> JidrResult<DeviceIo> {
+        let info: SimConnectInfo = self
+            .client
+            .call_as("simulator.connect_info", json!({ "device": selector }))
+            .await?;
+        Ok(DeviceIo::simulator(self.client.clone(), info))
+    }
+
+    /// A running Jidr device, else a ready USB phone by serial (#92), else a
+    /// booted iOS simulator (D50).
     async fn io(&self, selector: &str) -> JidrResult<DeviceIo> {
+        if looks_like_udid(selector)
+            && let Ok(io) = self.simulator(selector).await
+        {
+            return Ok(io);
+        }
         let e = match self
             .client
             .call_as::<_, ConnectInfo>("device.connect_info", json!({ "device": selector }))
@@ -447,7 +526,12 @@ impl JidrMcp {
             // A phone that isn't ready says what to do; otherwise the
             // device's own error.
             Err(pe) if phone_not_ready(&pe) => Err(pe),
-            Err(_) => Err(e),
+            Err(_) => match self.simulator(selector).await {
+                Ok(io) => Ok(io),
+                // A simulator that isn't booted says so.
+                Err(se) if sim_not_booted(&se) => Err(se),
+                Err(_) => Err(e),
+            },
         }
     }
 
@@ -457,11 +541,20 @@ impl JidrMcp {
             return Ok(());
         }
         let selector = params.get("device").and_then(Value::as_str);
-        // A phone (no Jidr device) is never agent-owned.
-        if let Some(sel) = selector
-            && self.device(sel).await.is_ok_and(|d| d.agent_owned)
-        {
-            return Ok(());
+        // A phone (no Jidr device) is never agent-owned; a simulator is when
+        // an agent created or leased it (D50).
+        if let Some(sel) = selector {
+            let owned = if spec.id.starts_with("simulator.") {
+                self.client
+                    .call("simulator.details", json!({ "device": sel }))
+                    .await
+                    .is_ok_and(|s| s["agent_owned"] == true)
+            } else {
+                self.device(sel).await.is_ok_and(|d| d.agent_owned)
+            };
+            if owned {
+                return Ok(());
+            }
         }
         Err(JidrError::usage(format!(
             "{} is destructive and {} isn't agent-owned; ask the user to run it, to start `jidr mcp --allow-destructive`, or to mark the device agent-owned (`jidr device edit <name> --agent-owned true`)",
@@ -487,7 +580,7 @@ impl JidrMcp {
         })?;
         let mut params = args.params.unwrap_or_else(|| json!({}));
         // Devices an agent creates are its own (D5), unless it says otherwise.
-        if spec.id == "device.create"
+        if (spec.id == "device.create" || spec.id == "simulator.create")
             && let Some(o) = params.as_object_mut()
         {
             o.entry("agent_owned").or_insert(json!(true));
@@ -567,6 +660,33 @@ impl JidrMcp {
                 };
                 let run = CommandRunArgs {
                     command: "pool.release".into(),
+                    params: Some(params),
+                    timeout_s: None,
+                };
+                Ok(ok_json(self.command_run(run).await?))
+            }
+            "simulator_lease" => {
+                let a: SimLeaseArgs = parse(args)?;
+                let run = CommandRunArgs {
+                    command: "simulator.lease".into(),
+                    params: Some(json!({
+                        "device_type": a.device_type,
+                        "runtime": a.runtime,
+                        "ttl_s": a.ttl_s,
+                    })),
+                    timeout_s: Some(900),
+                };
+                Ok(ok_json(self.command_run(run).await?))
+            }
+            "simulator_release" => {
+                let a: SimReleaseArgs = parse(args)?;
+                let params = match (a.lease, a.device) {
+                    (Some(l), None) => json!({ "lease": l }),
+                    (None, Some(d)) => json!({ "device": d }),
+                    _ => return Err(JidrError::usage("give either lease or device")),
+                };
+                let run = CommandRunArgs {
+                    command: "simulator.release".into(),
                     params: Some(params),
                     timeout_s: None,
                 };
@@ -656,11 +776,21 @@ impl JidrMcp {
                 let a: LogcatArgs = parse(args)?;
                 let params = json!({ "device": a.device, "lines": a.lines.unwrap_or(200), "filter": a.filter });
                 let v = match self.client.call("logcat.dump", params.clone()).await {
-                    Err(e) if e.code == ErrorCode::NotFound => self
-                        .client
-                        .call("physical.logcat", params)
-                        .await
-                        .map_err(|pe| if phone_not_ready(&pe) { pe } else { e })?,
+                    Err(e) if e.code == ErrorCode::NotFound => {
+                        match self.client.call("physical.logcat", params).await {
+                            Ok(v) => v,
+                            Err(pe) if phone_not_ready(&pe) => return Err(pe),
+                            // An iOS simulator: its unified log, last 5 minutes.
+                            Err(_) => self
+                                .client
+                                .call(
+                                    "simulator.log",
+                                    json!({ "device": a.device, "lines": a.lines.unwrap_or(200), "seconds": 300 }),
+                                )
+                                .await
+                                .map_err(|se| if sim_not_booted(&se) { se } else { e })?,
+                        }
+                    }
                     other => other?,
                 };
                 Ok(CallToolResult::success(vec![ContentBlock::text(
@@ -715,7 +845,11 @@ impl ServerHandler for JidrMcp {
                  device.start. Then screenshot → tap/swipe/type_text → ui_dump to find elements. If a start fails \
                  with resource_exhausted the machine is full: wait, release or hibernate devices you own \
                  (device.hibernate). screenshot, tap, swipe, type_text, press_key, ui_dump and logcat_tail also take a USB phone's serial; \
-                 other physical.* commands go through command_run. command_list shows every command. Devices you create are yours to delete.",
+                 other physical.* commands go through command_run. For an iOS simulator (macOS with Xcode), call \
+                 simulator_lease: it returns a fresh, booted simulator's UDID that is yours alone; pass that UDID as \
+                 device to screenshot/tap/swipe/type_text/press_key/ui_dump, install builds with command_run \
+                 simulator.install {device, app}, simulator.launch, simulator.open_url, and call simulator_release \
+                 when done. Never drive simulators you didn't lease. command_list shows every command. Devices you create are yours to delete.",
             )
     }
 
@@ -746,5 +880,25 @@ impl ServerHandler for JidrMcp {
         };
         tracing::debug!(tool = %name, ms = started.elapsed().as_millis() as u64, "tool call");
         Ok(CallToolResponse::Complete(result))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn udids_route_to_simulators() {
+        assert!(looks_like_udid("5CB58484-F3D8-4482-A8CA-6A979D33FB66"));
+        assert!(!looks_like_udid("emulator-5554"));
+        assert!(!looks_like_udid("Pixel 8"));
+    }
+
+    #[test]
+    fn unbooted_simulators_are_recognised() {
+        let e = JidrError::not_found("x isn't booted")
+            .with_data(json!({ "udid": "A", "state": "shutdown" }));
+        assert!(sim_not_booted(&e));
+        assert!(!sim_not_booted(&JidrError::not_found("no simulator")));
     }
 }

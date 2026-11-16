@@ -41,6 +41,8 @@ async fn tools_are_listed_with_annotations() {
         "proxy_set",
         "proxy_clear",
         "ca_cert_install",
+        "simulator_lease",
+        "simulator_release",
     ] {
         assert!(names.contains(&want), "{want} missing from {names:?}");
     }
