@@ -399,7 +399,7 @@ impl JidrMcp {
             ),
             tool::<SimLeaseArgs>(
                 "simulator_lease",
-                "Get your own fresh iOS simulator (needs Xcode on this Mac): created and booted for you, in about a minute. Returns its UDID; pass that as `device` to screenshot/tap/swipe/type_text/press_key/ui_dump, never another simulator's. It's deleted when this session ends; call simulator_release when done. Other simulator.* commands (install, launch, open_url, location, appearance, privacy…) go through command_run.",
+                "Get your own fresh iOS simulator (needs Xcode on this Mac): created and booted for you, with input ready (a minute or two; up to several minutes the first time or on a busy Mac). Returns its UDID; pass that as `device` to screenshot/tap/swipe/type_text/press_key/ui_dump, never another simulator's. It's deleted when this session ends; call simulator_release when done. Other simulator.* commands (install, launch, open_url, location, appearance, privacy…) go through command_run.",
                 ToolAnnotations::new()
                     .read_only(false)
                     .destructive(false)

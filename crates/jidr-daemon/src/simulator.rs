@@ -67,7 +67,7 @@ pub struct CreateParams {
     /// Device type id or name, e.g. `iPhone 17 Pro` (default: the newest iPhone the runtime supports).
     #[serde(default)]
     pub device_type: Option<String>,
-    /// Runtime id, name or version, e.g. `iOS 26.1` or `26.1` (default: the newest iOS runtime).
+    /// Runtime id, name or version, e.g. `iOS 26.1` or `26.1` (default: the newest iOS runtime with a regular iPhone, or with `device_type`).
     #[serde(default)]
     pub runtime: Option<String>,
     /// Boot it once created.
@@ -88,7 +88,7 @@ pub struct LeaseParams {
     /// Device type id or name (default: the newest iPhone).
     #[serde(default)]
     pub device_type: Option<String>,
-    /// Runtime id, name or version (default: the newest iOS runtime).
+    /// Runtime id, name or version (default: the newest iOS runtime with a regular iPhone, or with `device_type`).
     #[serde(default)]
     pub runtime: Option<String>,
     /// The simulator's name (default `Jidr agent <id>`).
@@ -1055,8 +1055,15 @@ impl CommandProvider for SimulatorProvider {
             "simulator.open_url" => {
                 let p: UrlParams = parse_params(params)?;
                 let s = self.booted(&simctl, &p.device).await?;
-                simctl.open_url(&s.udid, &p.url).await?;
-                Ok(json!({ "opened": p.url }))
+                if simctl.open_url(&s.udid, &p.url).await? {
+                    Ok(json!({ "opened": p.url, "confirmed": true }))
+                } else {
+                    Ok(json!({
+                        "opened": p.url,
+                        "confirmed": false,
+                        "note": "simctl timed out waiting for the simulator to confirm; it usually opens anyway, so check with a screenshot",
+                    }))
+                }
             }
             "simulator.location_set" => {
                 let p: LocationParams = parse_params(params)?;
@@ -1343,12 +1350,7 @@ impl SimulatorProvider {
                 s.hint.as_deref().unwrap_or("its runtime is missing")
             )));
         }
-        if !force
-            && let Ok(b) = self.state.budget()
-            && !b.fits(SIM_EXPECTED_MB)
-        {
-            return Err(b.refusal(&s.name, SIM_EXPECTED_MB));
-        }
+        self.admit(simctl, &s.name, force).await?;
         ctx.report(Some(0.2), &format!("Booting {}", s.name));
         simctl.boot(&s.udid).await?;
         ctx.report(Some(1.0), "Booted");
@@ -1356,6 +1358,24 @@ impl SimulatorProvider {
             "simulator.changed",
             json!({ "udid": s.udid, "state": SimState::Booted }),
         );
+        Ok(())
+    }
+
+    /// Refuses to boot past the host RAM budget (D42) unless `force`. Lists
+    /// the simulators first: the budget counts the booted ones from the last
+    /// listing, and a daemon that just started hasn't listed any yet.
+    async fn admit(&self, simctl: &Simctl, name: &str, force: bool) -> JidrResult<()> {
+        if force {
+            return Ok(());
+        }
+        if let Ok(devices) = simctl.devices().await {
+            self.hub().set_listing(&devices);
+        }
+        if let Ok(b) = self.state.budget()
+            && !b.fits(SIM_EXPECTED_MB)
+        {
+            return Err(b.refusal(name, SIM_EXPECTED_MB));
+        }
         Ok(())
     }
 
@@ -1378,12 +1398,7 @@ impl SimulatorProvider {
         ctx.report(Some(0.05), "Choosing a runtime");
         let (runtime, device_type) =
             choose(simctl, p.runtime.as_deref(), p.device_type.as_deref()).await?;
-        if !p.force
-            && let Ok(b) = self.state.budget()
-            && !b.fits(SIM_EXPECTED_MB)
-        {
-            return Err(b.refusal("a simulator", SIM_EXPECTED_MB));
-        }
+        self.admit(simctl, "a simulator", p.force).await?;
         let id = Uuid::new_v4();
         let name = p
             .name
@@ -1645,20 +1660,66 @@ fn guard_foreign(s: &Simulator, force: bool, what: &str) -> JidrResult<()> {
 }
 
 /// The runtime and device type to create with: the newest available iOS
-/// runtime and the newest iPhone it supports, unless named.
+/// runtime that has a regular numbered iPhone, and its newest iPhone Pro,
+/// unless named (see [`choose_pair`]).
 async fn choose(
     simctl: &Simctl,
     runtime: Option<&str>,
     device_type: Option<&str>,
 ) -> JidrResult<(SimRuntimeInfo, SimDeviceTypeInfo)> {
     let runtimes = simctl.runtimes().await?;
-    let rt = pick_runtime(&runtimes, runtime)?;
-    let types = if rt.device_types.is_empty() {
+    let all_types = if runtimes.iter().any(|r| r.device_types.is_empty()) {
         simctl.device_types().await?
     } else {
-        rt.device_types.clone()
+        Vec::new()
     };
-    let dt = pick_device_type(&types, device_type, &rt.info)?;
+    choose_pair(&runtimes, &all_types, runtime, device_type)
+}
+
+/// [`choose`] without `simctl`. A named runtime is used as is. Otherwise the
+/// newest available iOS runtime that has the named device type, or, with
+/// none named, a regular numbered iPhone: Xcode 27.1's iOS 27.1 runtime only
+/// supports "iPhone Duo", whose screenshots are black, and the default must
+/// not land on a runtime like that when an older one has an iPhone 17 Pro.
+pub(crate) fn choose_pair(
+    runtimes: &[jidr_simctl::Runtime],
+    all_types: &[SimDeviceTypeInfo],
+    runtime: Option<&str>,
+    device_type: Option<&str>,
+) -> JidrResult<(SimRuntimeInfo, SimDeviceTypeInfo)> {
+    let types_of = |rt: &jidr_simctl::Runtime| {
+        if rt.device_types.is_empty() {
+            all_types.to_vec()
+        } else {
+            rt.device_types.clone()
+        }
+    };
+    if runtime.is_some() {
+        let rt = pick_runtime(runtimes, runtime)?;
+        let dt = pick_device_type(&types_of(rt), device_type, &rt.info)?;
+        return Ok((rt.info.clone(), dt));
+    }
+    let mut ios: Vec<&jidr_simctl::Runtime> = runtimes
+        .iter()
+        .filter(|r| r.info.available && r.info.platform == "iOS")
+        .collect();
+    ios.sort_by_key(|r| std::cmp::Reverse(jidr_simctl::parse::version_key(&r.info.version)));
+    for rt in &ios {
+        let types = types_of(rt);
+        let fits = match device_type {
+            Some(_) => pick_device_type(&types, device_type, &rt.info).is_ok(),
+            None => types
+                .iter()
+                .any(|t| t.family == "iPhone" && model_number(&t.name) > 0),
+        };
+        if fits {
+            let dt = pick_device_type(&types, device_type, &rt.info)?;
+            return Ok((rt.info.clone(), dt));
+        }
+    }
+    // Nothing better: the newest iOS runtime as it is, or its error.
+    let rt = pick_runtime(runtimes, None)?;
+    let dt = pick_device_type(&types_of(rt), device_type, &rt.info)?;
     Ok((rt.info.clone(), dt))
 }
 
@@ -2190,6 +2251,92 @@ mod tests {
             "iPhone 16 Pro"
         );
         assert!(pick_device_type(&types, Some("Pixel"), info).is_err());
+    }
+
+    fn rt_with(platform: &str, version: &str, types: &[&str]) -> jidr_simctl::Runtime {
+        let mut r = rt(platform, version);
+        r.device_types = types.iter().map(|t| dt(t)).collect();
+        r
+    }
+
+    // Regression: Xcode 27.1's iOS 27.1 runtime supports only "iPhone Duo"
+    // (black screenshots), and the default lease landed on it.
+    #[test]
+    fn the_default_skips_a_runtime_without_a_numbered_iphone() {
+        let rts = vec![
+            rt_with("iOS", "27.1", &["iPhone Duo"]),
+            rt_with(
+                "iOS",
+                "26.1",
+                &["iPhone 17", "iPhone 17 Pro", "iPad Air 11-inch (M3)"],
+            ),
+            rt_with("iOS", "18.5", &["iPhone 16 Pro"]),
+        ];
+        let (r, d) = choose_pair(&rts, &[], None, None).unwrap();
+        assert_eq!(
+            (r.version.as_str(), d.name.as_str()),
+            ("26.1", "iPhone 17 Pro")
+        );
+        // Asking for it, or for its runtime, still gets it.
+        let (r, d) = choose_pair(&rts, &[], None, Some("iPhone Duo")).unwrap();
+        assert_eq!(
+            (r.version.as_str(), d.name.as_str()),
+            ("27.1", "iPhone Duo")
+        );
+        let (r, d) = choose_pair(&rts, &[], Some("27.1"), None).unwrap();
+        assert_eq!(
+            (r.version.as_str(), d.name.as_str()),
+            ("27.1", "iPhone Duo")
+        );
+        // A named type picks the newest runtime that has it.
+        let (r, _) = choose_pair(&rts, &[], None, Some("iPhone 16 Pro")).unwrap();
+        assert_eq!(r.version, "18.5");
+        // Only the odd runtime: it's used rather than failing.
+        let (r, d) = choose_pair(&rts[..1], &[], None, None).unwrap();
+        assert_eq!(
+            (r.version.as_str(), d.name.as_str()),
+            ("27.1", "iPhone Duo")
+        );
+    }
+
+    // Regression: the first lease after the daemon started skipped the RAM
+    // budget, because no simulator listing had happened yet.
+    #[tokio::test]
+    async fn admission_counts_simulators_booted_before_the_first_listing() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let td = crate::testing::TestDaemon::start_with_memory(
+            dir.path(),
+            jidr_sdk::host::HostMemory {
+                total_mb: 8192,
+                available_mb: 8192,
+            },
+        )
+        .await
+        .unwrap();
+        // A simctl that reports one booted simulator, someone else's.
+        let fake = dir.path().join("simctl");
+        std::fs::write(
+            &fake,
+            r#"#!/bin/sh
+echo '{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-26-1":[{"udid":"7883BE7C-9443-46AF-A2AB-40AB0A0D6FE4","name":"Busy","state":"Booted","isAvailable":true,"deviceTypeIdentifier":"x"}]}}'
+"#,
+        )
+        .unwrap();
+        std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let simctl = Simctl::new(&fake);
+        let provider = SimulatorProvider::new(td.daemon.state().clone());
+        assert!(provider.hub().booted().is_empty(), "nothing listed yet");
+        // 75% of 8 GB is 6 GB: the booted one (4 GB) leaves no room for another.
+        let e = provider
+            .admit(&simctl, "a simulator", false)
+            .await
+            .unwrap_err();
+        assert_eq!(e.code, jidr_core::ErrorCode::ResourceExhausted, "{e}");
+        assert!(
+            provider.admit(&simctl, "a simulator", true).await.is_ok(),
+            "force"
+        );
     }
 
     #[test]

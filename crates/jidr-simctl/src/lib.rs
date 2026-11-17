@@ -377,8 +377,19 @@ impl Simctl {
 
     // ---- environment ----------------------------------------------------
 
-    pub async fn open_url(&self, udid: &str, url: &str) -> JidrResult<()> {
-        self.run(&["openurl", udid, url]).await.map(drop)
+    /// Opens a URL. `Ok(false)` when simctl timed out waiting for the
+    /// simulator to confirm: on a busy Mac the URL still opens (seen with
+    /// Safari on iOS 26.1), so that's not a failure.
+    pub async fn open_url(&self, udid: &str, url: &str) -> JidrResult<bool> {
+        let args = ["openurl", udid, url];
+        let out = self.raw(&args).await?;
+        if out.success() {
+            Ok(true)
+        } else if timed_out(&out) {
+            Ok(false)
+        } else {
+            Err(classify(&args, &out))
+        }
     }
 
     pub async fn location_set(&self, udid: &str, lat: f64, lon: f64) -> JidrResult<()> {
@@ -515,6 +526,13 @@ pub async fn interrupt(child: &Child) -> JidrResult<()> {
     }
 }
 
+/// simctl gave up waiting for the simulator (`NSPOSIXErrorDomain` code 60,
+/// "Operation timed out").
+fn timed_out(out: &Output) -> bool {
+    let text = format!("{}{}", out.stderr, out.stdout);
+    text.contains("Operation timed out") || text.contains("NSPOSIXErrorDomain, code=60")
+}
+
 /// `Unable to … in current state: Booted`.
 fn in_state(out: &Output, state: &str) -> bool {
     let text = format!("{}{}", out.stderr, out.stdout);
@@ -632,6 +650,17 @@ mod tests {
             "Booted"
         ));
         assert!(!in_state(&out("Invalid device"), "Booted"));
+    }
+
+    // Regression: `openurl` timed out under load although Safari opened the
+    // URL, and Jidr reported a failure.
+    #[test]
+    fn openurl_timeouts_are_recognised() {
+        let o = out(
+            "An error was encountered processing the command (domain=NSPOSIXErrorDomain, code=60):\nSimulator device failed to open https://jidr.ly.\nOperation timed out\n",
+        );
+        assert!(timed_out(&o));
+        assert!(!timed_out(&out("Invalid device: x")));
     }
 
     #[test]

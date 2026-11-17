@@ -414,7 +414,10 @@ pub async fn run(c: &Client, out: Out, cmd: SimCmd) -> JidrResult<()> {
                 json!({ "device": d, "url": url }),
             )
             .await?;
-            out.ok(&v, |_| format!("Opened {url}."));
+            out.ok(&v, |v| match v["note"].as_str() {
+                Some(note) => format!("Asked to open {url}; {note}."),
+                None => format!("Opened {url}."),
+            });
         }
         SimCmd::Location { sim: d, lat, lon } => {
             let v = exec(
