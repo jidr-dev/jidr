@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.8.1](https://github.com/jidr-dev/jidr/compare/v0.8.0...v0.8.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* **daemon:** four iOS simulator fixes from the first run on a real simulator ([7614f59](https://github.com/jidr-dev/jidr/commit/7614f59ff281fe5ba4fb4ca982d90c0d36c1d023))
+* iOS simulator fixes from the first real run ([a828b4f](https://github.com/jidr-dev/jidr/commit/a828b4f7f337d63a2a6219330cd2969db8ef7add))
+* **release:** retry stapling the notarized DMG ([2e262f4](https://github.com/jidr-dev/jidr/commit/2e262f4a1aff38b7eca54376c65140c7187e909c))
+* **release:** retry stapling the notarized DMG ([2143514](https://github.com/jidr-dev/jidr/commit/214351427afcc5c7baafad6a18fa0813afa2dcd2))
+
 ## [0.8.0](https://github.com/jidr-dev/jidr/compare/v0.7.0...v0.8.0) (2026-11-16)
 
 
