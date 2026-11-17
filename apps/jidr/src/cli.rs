@@ -540,7 +540,7 @@ pub enum SimCmd {
         #[arg(long)]
         version: Option<String>,
     },
-    /// Create a simulator (newest iPhone on the newest iOS runtime unless named).
+    /// Create a simulator (unless named: the newest iPhone Pro on the newest iOS runtime that has one).
     Create {
         name: String,
         /// Device type name or id, e.g. "iPhone 17 Pro".

@@ -27,8 +27,11 @@ use tokio::sync::Mutex;
 /// Overrides where the runner's source is.
 pub const SOURCE_ENV: &str = "JIDR_SIM_RUNNER_DIR";
 const PROJECT: &str = "JidrSimRunner.xcodeproj";
-/// How long a runner may take to answer its first `ping`.
-const START_TIMEOUT: Duration = Duration::from_secs(180);
+/// How long a runner may take to answer its first `ping`. xcodebuild sets
+/// up a test session before the runner listens: about 15 s on an idle Mac,
+/// but more than 180 s under heavy load (measured 2026-11-17 with load
+/// average ~18), when it was killed while still starting.
+pub const START_TIMEOUT: Duration = Duration::from_secs(600);
 /// One request's budget (a `tree` of a busy screen takes a few seconds).
 const CALL_TIMEOUT: Duration = Duration::from_secs(60);
 /// A runner unused this long is stopped.
@@ -296,7 +299,12 @@ impl Conn {
 
 impl Runner {
     /// Starts the runner on a booted simulator and waits for its `ping`.
-    pub async fn start(xctestrun: &Path, udid: &str, log: &Path) -> JidrResult<Arc<Self>> {
+    pub async fn start(
+        xctestrun: &Path,
+        udid: &str,
+        log: &Path,
+        report: &(dyn Fn(&str) + Send + Sync),
+    ) -> JidrResult<Arc<Self>> {
         let port = free_port()?;
         let token = uuid::Uuid::new_v4().simple().to_string();
         if let Some(dir) = log.parent() {
@@ -323,7 +331,15 @@ impl Runner {
             .spawn()
             .map_err(|e| JidrError::sdk(format!("cannot run xcodebuild: {e}")))?;
         let started = Instant::now();
+        let mut said = 0;
         let conn = loop {
+            let waited = started.elapsed().as_secs();
+            if waited / 30 > said {
+                said = waited / 30;
+                report(&format!(
+                    "Starting the simulator input runner ({waited} s; slow when the Mac is busy)"
+                ));
+            }
             if let Ok(Some(status)) = child.try_wait() {
                 return Err(JidrError::sdk(format!(
                     "the simulator input runner exited ({status}) before it answered; see {}",
@@ -472,7 +488,7 @@ impl Runners {
         };
         report("Starting the simulator input runner");
         let log = logs.join("sim-runner").join(format!("{udid}.log"));
-        let r = Runner::start(&xctestrun, udid, &log).await?;
+        let r = Runner::start(&xctestrun, udid, &log, report).await?;
         self.by_udid
             .lock()
             .await
@@ -577,6 +593,13 @@ mod tests {
         assert_eq!(p["elements"][1]["frame"], Value::Null);
         assert_eq!(p["units"], "pixels");
         assert_eq!(to_points(300.0, 3.0), 100.0);
+    }
+
+    // Regression: under heavy load the runner took longer than the old 180 s
+    // limit to answer, and was killed while still starting.
+    #[test]
+    fn the_runner_gets_minutes_to_start() {
+        assert!(START_TIMEOUT >= Duration::from_secs(600));
     }
 
     #[test]
